@@ -13,8 +13,8 @@ import (
 var ErrNotText = errors.New("ini: UTF-16 or NUL bytes, not editable as text")
 
 // ErrBadName refuses a key that is empty, holds "=" or a line break, or starts with ";", "#" or "[", a value with a line
-// break, and a section with "]" or a line break, and a NUL in any of them: written as given they would become extra lines, a comment or a
-// different section.
+// break, a section with "]" or a line break, and a NUL in any of them: written as given they would become extra lines,
+// a comment or a different section.
 var ErrBadName = errors.New("ini: a key that is empty, holds = or starts with ; # [, a NUL or line break in a key or value, or ] in a section")
 
 // Check reports why content cannot be edited: ErrNotText for such a file, nil otherwise.
@@ -28,9 +28,9 @@ func Check(content string) error {
 // Set gives key the value inside section ("" for any section, taking the first match). The first line holding key in
 // the section (names compared without case, comments ignored) is rewritten as `key = value`, which drops its
 // indentation and any inline comment; a missing key is added at the end of its section, and a missing section is
-// created at the end of the file. A leading UTF-8 byte order mark and every other line's ending are kept. It returns
-// ErrNotText for UTF-16 or NUL content and ErrBadName for a name or value that would break the line structure (names are trimmed of surrounding space), in both
-// cases with content untouched.
+// created at the end of the file. A leading UTF-8 byte order mark and every other line's ending are kept. Names are
+// trimmed of surrounding space. It returns ErrNotText for UTF-16 or NUL content and ErrBadName for a name or value that
+// would break the line structure, in both cases with content untouched.
 func Set(content, section, key, value string) (string, error) {
 	if err := Check(content); err != nil {
 		return content, err
