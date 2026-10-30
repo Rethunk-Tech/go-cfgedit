@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Rethunk-Tech/go-cfgedit/internal/textdoc"
 )
 
 // FuzzBepInExSet holds that rewriting one setting with its own value never panics, never moves or changes any other
@@ -26,11 +28,13 @@ func FuzzBepInExSet(f *testing.F) {
 			if len(got) != len(want) {
 				t.Fatalf("line count %d, want %d", len(got), len(want))
 			}
-			// Splitting after "\n" leaves a "\r" in front of the ending, so the edited line compares by prefix.
 			for i := range got {
 				if i != e.line && got[i] != want[i] {
 					t.Fatalf("line %d changed: %q -> %q", i, want[i], got[i])
 				}
+			}
+			if eol := textdoc.Split(out).EOLs[e.line]; eol != d.doc.EOLs[e.line] {
+				t.Fatalf("edited line %d ends %q, was %q", e.line, eol, d.doc.EOLs[e.line])
 			}
 			// Validation canonicalises a value ("truE" becomes "true"), which is a change; anything it keeps must not move.
 			if canon, _ := e.validate(e.Value); canon == e.Value && d.doc.Lines[e.line] == e.Key+" = "+e.Value && out != text {
