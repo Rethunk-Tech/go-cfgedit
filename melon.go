@@ -69,10 +69,8 @@ func ParseMelon(text string) *Melon {
 			}
 			typ, val := melonType(value)
 			d.entries = append(d.entries, melonEntry{
-				Entry: Entry{
-					Section: section, Key: strings.Trim(strings.TrimSpace(raw[:eq]), `"'`),
-					Description: strings.Join(desc, "\n"), Type: typ, Value: val,
-				},
+				Section: section, Key: strings.Trim(strings.TrimSpace(raw[:eq]), `"'`),
+				Description: strings.Join(desc, "\n"), Type: typ, Value: val,
 				line: i, end: end, prefix: raw[:eq+1] + " ", suffix: suffix,
 			})
 			desc = nil
