@@ -14,10 +14,14 @@ Please do not open a public issue for a suspected vulnerability first.
 
 ## What is in scope
 
-<!-- scaffold: the untrusted inputs this package handles, and each property a crafted input must not
-break (an escape, an unbounded allocation, a panic). One bullet each, naming the API. -->
+- Config text passed to `ParseBepInEx`, `ParseMelon`, `ini.Set` and `ini.Check`: arbitrary bytes must not cause a
+  panic, an unbounded allocation beyond the input size, or a change to any line other than the edited one.
+- The `key`, `section` and `value` passed to `Set`: a value holding a line break must not become extra lines
+  (`ini.Set` returns `ErrBadName`, the typed editors return `MultiLine`), and a Melon value must not leave a
+  parsable file unparsable.
 
 ## What is out of scope
 
-<!-- scaffold: what the caller is trusted to have checked already, and behaviour that is intended
-rather than a vulnerability. -->
+- Reading and writing the file, its permissions and atomic replacement: the caller does both.
+- Deciding which settings a person may change: `Set` edits any setting that exists.
+- Values the game itself rejects but the format allows beyond what the package checks (a plugin's own validation).

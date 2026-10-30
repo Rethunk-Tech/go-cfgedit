@@ -11,8 +11,7 @@
 
 Byte-preserving single-setting editors for BepInEx .cfg, MelonLoader MelonPreferences.cfg and INI files. Package `cfgedit`, module `github.com/Rethunk-Tech/go-cfgedit`.
 
-<!-- scaffold: one short paragraph on what the package guarantees and why it exists, in plain
-words. -->
+Each editor takes the file's text, changes one setting and returns the new text. Every other byte stays as it was, including a byte order mark and each line's own line ending, so a hand-edited config keeps its comments, order and spacing. Nothing here reads or writes a file.
 
 ## Quick start
 
@@ -24,7 +23,11 @@ A worked example and the contracts: [HUMANS.md](HUMANS.md).
 
 ## Features
 
-<!-- scaffold: 3 to 6 bullets, each a capability a caller can rely on. No roadmap. -->
+- BepInEx `.cfg`: typed entries read from the `#` comment lines, values validated the way BepInEx parses them.
+- MelonLoader `MelonPreferences.cfg`: types read off the TOML values, edits written as TOML and re-checked as a whole.
+- INI: `ini.Set` edits one `key = value` in a section, adding the key or section when missing.
+- Refusals are typed: `ValueError` carries a stable `Problem` code, the bound broken and the acceptable values.
+- Per-line endings and the BOM survive every edit.
 
 ## Documentation
 
