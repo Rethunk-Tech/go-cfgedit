@@ -21,6 +21,8 @@ cannot resolve that check from PATH.
   lists every constant (the `exhaustive` lint has no default-covers-all).
 - `Melon.Set` re-parses the whole file with `BurntSushi/toml` as a validator only; it never writes. One unparsable line
   makes MelonLoader run on defaults with saving disabled.
+- An unclassified Melon value (inline table, date, hex integer) is `TypeRaw`, editable as typed rather than read-only,
+  because MelonLoader reads it. `Set` refuses it empty or when it would break the file.
 - `ini.Set` trims the key and section before comparing, because lines are compared trimmed; checks run on the raw names
   first so trimming cannot hide a line break.
 - Fixtures under `testdata/` are bytes (`-text`): they hold a BOM and mixed endings on purpose.
