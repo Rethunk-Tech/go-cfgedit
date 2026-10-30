@@ -6,6 +6,10 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `msbuild`: read and edit the properties, items and attributes of a `.csproj`, `.props` or `.targets` in place, changing only the edited element's bytes.
+
 ## [0.1.0] - 2026-10-29
 
 ### Added

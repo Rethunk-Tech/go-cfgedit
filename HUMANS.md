@@ -57,6 +57,7 @@ func main() {
 | Duplicate key | `Set` edits the first one. |
 | `ini.Set` | Names compared without case, comments ignored; a missing key is appended inside its section, a missing section at the end. The edited line becomes `key = value`, dropping its indentation and inline comment. |
 | `ini.Set` refusals | `ErrNotText` for UTF-16 or NUL content, `ErrBadName` for a key that is empty, holds `=` or starts with `;`, `#` or `[`, a line break or NUL in a key or value, or `]` in a section. The text is returned untouched. |
+| `msbuild` | `Parse` finds each element's byte span; `SetProperty`, `SetRawProperty`, `RemoveProperty`, `SetItem`, `Remove` and `SetAttr` change only those bytes, so comments, indentation and attribute order stay. Values go through `Escape`/`EscapeXML`; `CheckValue` refuses a character XML cannot carry (`ErrBadChar`). |
 | Known gaps | TOML dotted keys and multi-line inline tables are not parsed as entries; the TOML check is `BurntSushi/toml`'s TOML 1.0 reader, not Tomlet; INI has no continuation lines. |
 
 ## Requirements
