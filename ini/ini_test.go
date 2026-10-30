@@ -48,7 +48,7 @@ func TestRefusalDoesNotCallANULInUTF8TextUTF16(t *testing.T) {
 
 func TestSetRefusesNamesThatWouldBreakTheLines(t *testing.T) {
 	const in = "[a]\nx = 1\n"
-	for _, c := range [][3]string{{"a", "k\nz", "v"}, {"a", "k", "v\r\nw = 2"}, {"a", "k", "v\n"}, {"a]\n[b", "k", "v"}, {"a\n", "k", "v"}} {
+	for _, c := range [][3]string{{"a", "k\nz", "v"}, {"a", "k", "v\r\nw = 2"}, {"a", "k", "v\n"}, {"a]\n[b", "k", "v"}, {"a\n", "k", "v"}, {"a", "k=z", "v"}, {"a", "#k", "v"}, {"a", " ", "v"}, {"a", "k", "v\x00"}} {
 		got, err := Set(in, c[0], c[1], c[2])
 		if !errors.Is(err, ErrBadName) || got != in {
 			t.Errorf("%q: got %q, %v", c, got, err)

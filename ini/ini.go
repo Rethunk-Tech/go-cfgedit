@@ -35,9 +35,12 @@ func Set(content, section, key, value string) (string, error) {
 	if err := Check(content); err != nil {
 		return content, err
 	}
+	if strings.ContainsAny(key+value, "\r\n\x00") || strings.ContainsAny(section, "]\r\n\x00") {
+		return content, ErrBadName
+	}
 	// Names are compared trimmed, so a padded one would never match the line it wrote.
 	section, key = strings.TrimSpace(section), strings.TrimSpace(key)
-	if badKey(key) || strings.ContainsAny(key+value, "\r\n\x00") || strings.ContainsAny(section, "]\r\n\x00") {
+	if badKey(key) {
 		return content, ErrBadName
 	}
 	d := textdoc.Split(content)
