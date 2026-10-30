@@ -27,7 +27,6 @@ A worked example and the contracts: [HUMANS.md](HUMANS.md).
 - MelonLoader `MelonPreferences.cfg`: types read off the TOML values, edits written as TOML and re-checked as a whole.
 - INI: `ini.Set` edits one `key = value` in a section, adding the key or section when missing.
 - Refusals are typed: `ValueError` carries a stable `Problem` code, the bound broken and the acceptable values.
-- Per-line endings and the BOM survive every edit.
 
 ## Documentation
 
