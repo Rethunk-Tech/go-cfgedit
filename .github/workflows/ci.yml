@@ -66,9 +66,8 @@ jobs:
           run-test-race: "true"
 
       # Each Fuzz target found in each package gets a short run, so a new target is covered without
-      # editing this file. Linux only: every other leg already replays the committed seeds as tests.
+      # editing this file.
       - name: Fuzz smoke
-        if: runner.os == 'Linux'
         run: |
           for pkg in $(go list ./...); do
             for target in $(go test -list '^Fuzz' "$pkg" | grep '^Fuzz' || true); do
