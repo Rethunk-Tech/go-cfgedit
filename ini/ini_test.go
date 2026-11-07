@@ -79,3 +79,10 @@ func FuzzSet(f *testing.F) {
 		}
 	})
 }
+
+func TestSetRefusesANameThatMakesTheFileLookLikeUTF16(t *testing.T) {
+	got, err := Set("", " ", "\xff\xfe", "0")
+	if !errors.Is(err, ErrBadName) || got != "" {
+		t.Fatalf("got %q, %v", got, err)
+	}
+}

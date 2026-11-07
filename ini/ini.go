@@ -52,9 +52,15 @@ func Set(content, section, key, value string) (string, error) {
 	if at >= 0 {
 		k, _, _ := strings.Cut(d.Lines[at], "=")
 		d.Lines[at] = strings.TrimSpace(k) + " = " + value
-		return d.Join(), nil
+	} else {
+		d = insert(d, section, key, value, last, sectionSeen)
 	}
-	return insert(d, section, key, value, last, sectionSeen).Join(), nil
+	out := d.Join()
+	// A name that opens the file with a UTF-16 byte order mark would make the result one this package refuses to edit.
+	if Check(out) != nil {
+		return content, ErrBadName
+	}
+	return out, nil
 }
 
 // scan finds the line holding key in section, or -1. last is the index after the final non-blank line of the section,
