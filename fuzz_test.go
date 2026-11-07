@@ -9,7 +9,7 @@ import (
 )
 
 // FuzzBepInExSet holds that rewriting one setting with its own value never panics, never moves or changes any other
-// line, and leaves a line already written as "Key = value" byte for byte as it was, each line keeping its own ending.
+// line (lines as the parser cuts them, a lone "\r" included), and leaves a line already written as "Key = value" byte for byte as it was, each line keeping its own ending.
 func FuzzBepInExSet(f *testing.F) {
 	f.Add("## Settings file was created by plugin P v1.0\n## Plugin GUID: a.b\n\n[General]\n\n## Hi\n# Setting type: Boolean\n# Default value: true\nEnabled = true\n")
 	f.Add("[A]\nKey=1\r\nOther =  two\n")
@@ -24,17 +24,18 @@ func FuzzBepInExSet(f *testing.F) {
 			if err != nil {
 				continue
 			}
-			got, want := strings.SplitAfter(out, "\n"), strings.SplitAfter(text, "\n")
-			if len(got) != len(want) {
-				t.Fatalf("line count %d, want %d", len(got), len(want))
+			// Lines are the parser's own (a lone "\r" ends one too), which is what e.line indexes.
+			got, want := textdoc.SplitCR(out), textdoc.SplitCR(text)
+			if len(got.Lines) != len(want.Lines) {
+				t.Fatalf("line count %d, want %d", len(got.Lines), len(want.Lines))
 			}
-			for i := range got {
-				if i != e.line && got[i] != want[i] {
-					t.Fatalf("line %d changed: %q -> %q", i, want[i], got[i])
+			for i := range got.Lines {
+				if i != e.line && got.Lines[i] != want.Lines[i] {
+					t.Fatalf("line %d changed: %q -> %q", i, want.Lines[i], got.Lines[i])
 				}
-			}
-			if eol := textdoc.Split(out).EOLs[e.line]; eol != d.doc.EOLs[e.line] {
-				t.Fatalf("edited line %d ends %q, was %q", e.line, eol, d.doc.EOLs[e.line])
+				if got.EOLs[i] != want.EOLs[i] {
+					t.Fatalf("line %d ending %q, was %q", i, got.EOLs[i], want.EOLs[i])
+				}
 			}
 			// Validation canonicalises a value ("truE" becomes "true"), which is a change; anything it keeps must not move.
 			if canon, _ := e.validate(e.Value); canon == e.Value && d.doc.Lines[e.line] == e.Key+" = "+e.Value && out != text {
