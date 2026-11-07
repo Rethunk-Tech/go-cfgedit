@@ -6,6 +6,8 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-07
+
 ### Changed
 
 - `msbuild.SetRawProperty` refuses text holding markup or a malformed entity (`ErrMarkup`), and `SetProperty`, `SetRawProperty`, `SetItem` and `SetAttr` refuse a property, item type or attribute name that is not a plain XML name (`ErrBadName`).
@@ -15,6 +17,7 @@ Notable changes to `go-cfgedit`. The format follows
 - `msbuild.SetAttr` no longer mistakes an attribute name written inside another attribute's value for the attribute.
 - `ParseBepInEx` ends a line at a lone CR, as BepInEx's reader does, so `Set` no longer drops the setting after it.
 - `Melon.Set` refuses a multi-line value in a file that does not parse, instead of deleting the lines after an unclosed string.
+- `ini.Set` refuses a name that would make the result read as UTF-16.
 
 ## [0.2.0] - 2026-10-30
 
@@ -31,6 +34,7 @@ Notable changes to `go-cfgedit`. The format follows
 - `ValueError`, `Problem` and `ErrNoSetting`: a refused value carries a stable problem code, the bound broken and the acceptable values; a missing setting is told apart with `errors.Is`.
 - `ini.Set` and `ini.Check`: set `key = value` in an INI section, adding the key or the section when missing, refusing UTF-16 or NUL content and names that would break the lines.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Rethunk-Tech/go-cfgedit/releases/tag/v0.1.0
