@@ -80,7 +80,7 @@ type bepEntry struct {
 
 // ParseBepInEx reads a BepInEx .cfg. It never fails: a line it does not understand is skipped.
 func ParseBepInEx(text string) *BepInEx {
-	d := &BepInEx{doc: textdoc.Split(text)}
+	d := &BepInEx{doc: textdoc.SplitCR(text)}
 	var section string
 	var pending bepEntry
 	var desc []string

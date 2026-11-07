@@ -180,3 +180,37 @@ func TestInsertionsKeepTheFilesLineEndingAndIndent(t *testing.T) {
 		}
 	}
 }
+
+func TestSetRawPropertyRefusesMarkupAndBadNames(t *testing.T) {
+	in := "<Project><PropertyGroup><X>1</X></PropertyGroup></Project>"
+	for _, raw := range []string{`</X><Target Name="P"/><X>`, `<!-- c -->`, `<![CDATA[x]]>`, `a & b`, `&bogus;`} {
+		if out, err := SetRawProperty(in, "X", raw); !errors.Is(err, ErrMarkup) || out != in {
+			t.Errorf("raw %q: %q, %v", raw, out, err)
+		}
+	}
+	if out, err := SetRawProperty(in, "X", "a;b&amp;c"); err != nil || !strings.Contains(out, "<X>a;b&amp;c</X>") {
+		t.Fatalf("plain text refused: %q, %v", out, err)
+	}
+	if _, err := SetProperty(in, `A></A><Target Name="P"/><A`, "v"); !errors.Is(err, ErrBadName) {
+		t.Fatalf("name: %v", err)
+	}
+	if _, err := SetItem(in, Item{Type: "Ref", Include: "a", Attrs: map[string]string{`Version" Evil="1`: "x"}}, nil, func(Item) bool { return false }); !errors.Is(err, ErrBadName) {
+		t.Fatalf("attribute key: %v", err)
+	}
+	if _, err := SetItem(in, Item{Type: "Ref><Target", Include: "a"}, nil, func(Item) bool { return false }); !errors.Is(err, ErrBadName) {
+		t.Fatalf("item type: %v", err)
+	}
+}
+
+func TestSetAttrSkipsAttributeNamesInsideValues(t *testing.T) {
+	in := `<P><Ref Include="A" Note="x Version='1'" Version="2" /></P>`
+	out, err := SetAttr(in, func(e Elem, _ string) bool { return e.Name == "Ref" }, "Version", "3")
+	want := `<P><Ref Include="A" Note="x Version='1'" Version="3" /></P>`
+	if err != nil || out != want {
+		t.Fatalf("SetAttr = %q, %v", out, err)
+	}
+	out, _ = SetAttr(`<P><Ref Include="A" Note="Version='1'"/></P>`, func(e Elem, _ string) bool { return e.Name == "Ref" }, "Version", "3")
+	if _, err := Parse(out); err != nil || !strings.Contains(out, `Version="3"`) || !strings.Contains(out, `Note="Version='1'"`) {
+		t.Fatalf("added attribute: %q, %v", out, err)
+	}
+}

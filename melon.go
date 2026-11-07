@@ -310,7 +310,13 @@ func (d *Melon) Set(section, key, value string) (string, error) {
 		nd.EOLs = slices.Delete(slices.Clone(d.doc.EOLs), e.line+1, e.end+1)
 		nd.EOLs[e.line] = d.doc.EOLs[e.end]
 		// One unparsable line makes MelonLoader run every melon on defaults and disable saving.
-		if parsesAsTOML(d.doc.Lines) && !parsesAsTOML(nd.Lines) {
+		parsed := parsesAsTOML(d.doc.Lines)
+		if parsed && !parsesAsTOML(nd.Lines) {
+			return "", refuse(e.Key, BreaksTOML)
+		}
+		// In a file that does not parse, a value over several lines may be an unclosed string or array running to
+		// the end, and replacing its span would delete whatever follows.
+		if !parsed && e.end > e.line {
 			return "", refuse(e.Key, BreaksTOML)
 		}
 		return nd.Join(), nil

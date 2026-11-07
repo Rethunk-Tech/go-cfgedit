@@ -6,6 +6,16 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `msbuild.SetRawProperty` refuses text holding markup or a malformed entity (`ErrMarkup`), and `SetProperty`, `SetRawProperty`, `SetItem` and `SetAttr` refuse a property, item type or attribute name that is not a plain XML name (`ErrBadName`).
+
+### Fixed
+
+- `msbuild.SetAttr` no longer mistakes an attribute name written inside another attribute's value for the attribute.
+- `ParseBepInEx` ends a line at a lone CR, as BepInEx's reader does, so `Set` no longer drops the setting after it.
+- `Melon.Set` refuses a multi-line value in a file that does not parse, instead of deleting the lines after an unclosed string.
+
 ## [0.2.0] - 2026-10-30
 
 ### Added

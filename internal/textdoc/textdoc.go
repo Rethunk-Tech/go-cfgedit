@@ -19,21 +19,36 @@ type Doc struct {
 }
 
 // Split cuts text into a Doc, taking a leading UTF-8 byte order mark off the first line.
-func Split(text string) Doc {
+func Split(text string) Doc { return split(text, false) }
+
+// SplitCR is Split for a reader that also ends a line at a lone "\r", as .NET's ReadLine does: such a line's ending
+// is "\r", and a trailing "\r" ends a line too.
+func SplitCR(text string) Doc { return split(text, true) }
+
+func split(text string, loneCR bool) Doc {
 	text, bom := strings.CutPrefix(text, utf8BOM)
 	d := Doc{BOM: bom}
-	parts := strings.Split(text, "\n")
-	for i, l := range parts {
-		switch cut, ok := strings.CutSuffix(l, "\r"); {
-		case i == len(parts)-1:
-			// No newline follows the last piece, so a trailing "\r" is content, not an ending.
-			d.Lines, d.EOLs = append(d.Lines, l), append(d.EOLs, "")
-		case ok:
-			d.Lines, d.EOLs = append(d.Lines, cut), append(d.EOLs, "\r\n")
+	start := 0
+	for i := 0; i < len(text); i++ {
+		var eol string
+		switch {
+		case text[i] == '\n' && i > start && text[i-1] == '\r':
+			eol = "\r\n"
+		case text[i] == '\n':
+			eol = "\n"
+		case text[i] == '\r' && loneCR && (i+1 == len(text) || text[i+1] != '\n'):
+			eol = "\r"
 		default:
-			d.Lines, d.EOLs = append(d.Lines, l), append(d.EOLs, "\n")
+			continue
 		}
+		end := i
+		if eol == "\r\n" {
+			end = i - 1
+		}
+		d.Lines, d.EOLs = append(d.Lines, text[start:end]), append(d.EOLs, eol)
+		start = i + 1
 	}
+	d.Lines, d.EOLs = append(d.Lines, text[start:]), append(d.EOLs, "")
 	return d
 }
 

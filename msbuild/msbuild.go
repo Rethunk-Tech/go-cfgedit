@@ -128,9 +128,17 @@ func SetProperty(text, name, value string) (string, error) {
 	return SetRawProperty(text, name, Escape(value))
 }
 
-// SetRawProperty is SetProperty for text already escaped, such as a list whose ; MSBuild must split on.
+// SetRawProperty is SetProperty for text already escaped, such as a list whose ; MSBuild must split on. raw is XML
+// character data: markup in it (a tag, comment or CDATA section) is refused with ErrMarkup, because it would add
+// elements to a project that dotnet builds.
 func SetRawProperty(text, name, raw string) (string, error) {
+	if err := checkName(name); err != nil {
+		return text, err
+	}
 	if err := CheckValue(raw); err != nil {
+		return text, fmt.Errorf("the value of %s: %w", name, err)
+	}
+	if err := checkText(raw); err != nil {
 		return text, fmt.Errorf("the value of %s: %w", name, err)
 	}
 	elems, err := Parse(text)
@@ -182,6 +190,14 @@ func Items(text string, types ...string) ([]Item, error) {
 // SetItem puts item in place of the first item whose type is one of same and whose Include matches; otherwise after the
 // last item after picks, or in a new ItemGroup.
 func SetItem(text string, item Item, same []string, after func(Item) bool) (string, error) {
+	if err := checkName(item.Type); err != nil {
+		return text, err
+	}
+	for k := range item.Attrs {
+		if err := checkName(k); err != nil {
+			return text, err
+		}
+	}
 	for _, v := range append([]string{item.Include}, slices.Collect(maps.Values(item.Attrs))...) {
 		if err := CheckValue(v); err != nil {
 			return text, fmt.Errorf("the %s item %q: %w", item.Type, item.Include, err)
@@ -249,6 +265,9 @@ func Remove(text string, match func(e Elem, parent string) bool) (string, error)
 // SetAttr sets attr to value on every element match picks, in place: an existing value's bytes are replaced, a missing
 // attribute is added before the tag's end. It also serves .slnx solutions, which are XML.
 func SetAttr(text string, match func(e Elem, parent string) bool, attr, value string) (string, error) {
+	if err := checkName(attr); err != nil {
+		return text, err
+	}
 	if err := CheckValue(value); err != nil {
 		return text, fmt.Errorf("the %s attribute: %w", attr, err)
 	}
@@ -257,7 +276,6 @@ func SetAttr(text string, match func(e Elem, parent string) bool, attr, value st
 		return text, err
 	}
 	quoted := attr + `="` + escapeAttr(value) + `"`
-	existing := regexp.MustCompile(`(\s)` + regexp.QuoteMeta(attr) + `\s*=\s*("[^"]*"|'[^']*')`)
 	for _, e := range slices.Backward(elems) {
 		parent := ""
 		if e.Parent >= 0 {
@@ -267,8 +285,8 @@ func SetAttr(text string, match func(e Elem, parent string) bool, attr, value st
 			continue
 		}
 		tag := text[e.Start:e.InnerStart]
-		if loc := existing.FindStringSubmatchIndex(tag); loc != nil {
-			tag = tag[:loc[3]] + quoted + tag[loc[1]:]
+		if from, to, ok := attrSpan(tag, attr); ok {
+			tag = tag[:from] + quoted + tag[to:]
 		} else {
 			end := len(tag) - 1
 			if strings.HasSuffix(tag, "/>") {
@@ -282,6 +300,47 @@ func SetAttr(text string, match func(e Elem, parent string) bool, attr, value st
 		text = text[:e.Start] + tag + text[e.InnerStart:]
 	}
 	return text, nil
+}
+
+// attrSpan is the byte range of attr="value" (the name through the closing quote) in a start tag, found by walking
+// its attributes so a quoted value that holds " attr='x'" is never mistaken for the attribute.
+func attrSpan(tag, attr string) (from, to int, ok bool) {
+	p := 1
+	for p < len(tag) && !strings.ContainsRune(" \t\r\n/>", rune(tag[p])) {
+		p++
+	}
+	for p < len(tag) {
+		for p < len(tag) && strings.ContainsRune(" \t\r\n", rune(tag[p])) {
+			p++
+		}
+		start := p
+		for p < len(tag) && !strings.ContainsRune(" \t\r\n=/>", rune(tag[p])) {
+			p++
+		}
+		name := tag[start:p]
+		for p < len(tag) && strings.ContainsRune(" \t\r\n", rune(tag[p])) {
+			p++
+		}
+		if name == "" || p >= len(tag) || tag[p] != '=' {
+			return 0, 0, false
+		}
+		p++
+		for p < len(tag) && strings.ContainsRune(" \t\r\n", rune(tag[p])) {
+			p++
+		}
+		if p >= len(tag) || (tag[p] != '"' && tag[p] != '\'') {
+			return 0, 0, false
+		}
+		closing := strings.IndexByte(tag[p+1:], tag[p])
+		if closing < 0 {
+			return 0, 0, false
+		}
+		p += closing + 2
+		if name == attr {
+			return start, p, true
+		}
+	}
+	return 0, 0, false
 }
 
 func (it Item) xml() string {
@@ -388,6 +447,45 @@ var (
 	unescape      = strings.NewReplacer("%25", "%", "%24", "$", "%40", "@", "%3B", ";", "%27", "'", "%2A", "*", "%3F", "?")
 	escapeXML     = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 )
+
+// ErrBadName is an element, item type or attribute name that is not a plain XML name.
+var ErrBadName = errors.New("msbuild: not a plain XML name")
+
+// ErrMarkup is raw property text holding markup or a malformed entity.
+var ErrMarkup = errors.New("msbuild: the raw text holds markup")
+
+var plainName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]*$`)
+
+func checkName(name string) error {
+	if !plainName.MatchString(name) {
+		return fmt.Errorf("%w: %q", ErrBadName, name)
+	}
+	return nil
+}
+
+// checkText accepts only character data: no tag, comment, CDATA section or processing instruction, and entity
+// references that XML resolves.
+func checkText(raw string) error {
+	if strings.Contains(raw, "<") {
+		return ErrMarkup
+	}
+	dec := xml.NewDecoder(strings.NewReader("<x>" + raw + "</x>"))
+	dec.Strict = true
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrMarkup, err)
+		}
+		switch tok.(type) {
+		case xml.StartElement, xml.EndElement, xml.CharData:
+		default:
+			return ErrMarkup
+		}
+	}
+}
 
 // ErrBadChar is a value holding invalid UTF-8 or a character XML 1.0 cannot carry.
 var ErrBadChar = errors.New("holds a character XML cannot carry")

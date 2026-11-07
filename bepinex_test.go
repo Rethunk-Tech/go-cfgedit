@@ -221,3 +221,14 @@ func TestValueErrorSentencesForOpenRanges(t *testing.T) {
 		}
 	}
 }
+
+func TestBepInExLoneCRIsALineBreak(t *testing.T) {
+	d := ParseBepInEx("[S]\na = 1\rb = 2\n")
+	if len(d.Entries()) != 2 {
+		t.Fatalf("entries = %+v", d.Entries())
+	}
+	out, err := d.Set("S", "a", "9")
+	if err != nil || out != "[S]\na = 9\rb = 2\n" {
+		t.Fatalf("Set = %q, %v", out, err)
+	}
+}

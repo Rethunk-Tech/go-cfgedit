@@ -17,3 +17,18 @@ func TestEOLIsCRLFWhenAnyLineHasOne(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitCRBreaksAtALoneCR(t *testing.T) {
+	d := SplitCR("a\rb\r\nc\r")
+	if got := d.Lines; len(got) != 4 || got[0] != "a" || got[1] != "b" || got[2] != "c" || got[3] != "" {
+		t.Fatalf("lines = %q", got)
+	}
+	if d.EOLs[0] != "\r" || d.EOLs[1] != "\r\n" || d.EOLs[2] != "\r" {
+		t.Fatalf("eols = %q", d.EOLs)
+	}
+	for _, in := range []string{"", "a\rb", "a\r\r\n", "\r\r", "a\n\rb"} {
+		if got := SplitCR(in).Join(); got != in {
+			t.Errorf("%q came back as %q", in, got)
+		}
+	}
+}

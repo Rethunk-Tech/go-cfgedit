@@ -184,3 +184,10 @@ func TestMelonEditsAFileThatWasAlreadyBroken(t *testing.T) {
 		t.Errorf("%q %v", out, err)
 	}
 }
+
+func TestMelonSetKeepsWhatFollowsAnUnclosedString(t *testing.T) {
+	in := "[A]\ndesc = \"\"\"unclosed\n[B]\nx = 1\n"
+	if out, err := ParseMelon(in).Set("A", "desc", "new"); err == nil {
+		t.Fatalf("Set wrote %q", out)
+	}
+}
