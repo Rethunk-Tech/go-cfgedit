@@ -6,6 +6,10 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `jsonfile`: parse a mod's lenient JSON config (`Parse`), read a value by dotted path (`Lookup`), type raw text as the setting's kind (`Coerce`) and set one value (`Set`), keeping key order and every other value; `SplitPath` unescapes a `.` or `\` in a key, and `Node.Marshal` writes the two-space-indented file.
+
 ## [0.3.0] - 2026-11-07
 
 ### Changed
