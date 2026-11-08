@@ -19,7 +19,10 @@ var ErrBadName = errors.New("ini: a key that is empty, holds = or starts with ; 
 
 // Check reports why content cannot be edited: ErrNotText for such a file, nil otherwise.
 func Check(content string) error {
-	if strings.HasPrefix(content, "\xff\xfe") || strings.HasPrefix(content, "\xfe\xff") || strings.ContainsRune(content, 0) {
+	if len(content) >= 2 && (content[0] == 0xff && content[1] == 0xfe || content[0] == 0xfe && content[1] == 0xff) {
+		return ErrNotText
+	}
+	if strings.ContainsRune(content, 0) {
 		return ErrNotText
 	}
 	return nil
