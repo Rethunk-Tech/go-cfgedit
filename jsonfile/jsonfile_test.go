@@ -3,6 +3,7 @@ package jsonfile
 import (
 	"bytes"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -78,11 +79,11 @@ func TestSplitPathKeepsADottedKeyWhole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"Keys", "Open.Menu"}; !slicesEqual(parts, want) {
+	if want := []string{"Keys", "Open.Menu"}; !slices.Equal(parts, want) {
 		t.Fatalf("parts = %q, want %q", parts, want)
 	}
 	parts, err = SplitPath(`a\\b`)
-	if err != nil || !slicesEqual(parts, []string{`a\b`}) {
+	if err != nil || !slices.Equal(parts, []string{`a\b`}) {
 		t.Fatalf("parts = %q %v", parts, err)
 	}
 	for _, field := range []string{"", ".", "a..b", "a. .b"} {
@@ -262,18 +263,6 @@ func equal(a, b Node) bool {
 	}
 	for i := range a.Obj {
 		if a.Obj[i].Key != b.Obj[i].Key || !equal(a.Obj[i].Value, b.Obj[i].Value) {
-			return false
-		}
-	}
-	return true
-}
-
-func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
 			return false
 		}
 	}

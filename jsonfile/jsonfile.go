@@ -288,13 +288,13 @@ func (n Node) Lookup(path []string) (Node, bool) {
 // key is appended to its object under the spelling in path. A missing intermediate key wraps ErrUnknownKey, and an
 // intermediate value that is not an object wraps ErrNotObject.
 func Set(n Node, path []string, v Node) (Node, error) {
-	if len(path) == 0 {
+	head, rest, ok := cutPath(path)
+	if !ok {
 		return v, nil
 	}
 	if n.Kind != Object {
-		return n, fmt.Errorf("%s %w", path[0], ErrNotObject)
+		return n, fmt.Errorf("%s %w", head, ErrNotObject)
 	}
-	head, rest := path[0], path[1:]
 	for i, p := range n.Obj {
 		if !strings.EqualFold(p.Key, head) {
 			continue
@@ -321,6 +321,14 @@ func Set(n Node, path []string, v Node) (Node, error) {
 	out[len(n.Obj)] = Pair{Key: head, Value: v}
 	n.Obj = out
 	return n, nil
+}
+
+// cutPath splits path into its first key and the rest; ok is false for an empty path.
+func cutPath(path []string) (head string, rest []string, ok bool) {
+	if len(path) == 0 {
+		return "", nil, false
+	}
+	return path[0], path[1:], true
 }
 
 // Coerce types raw text as kind: Bool parses it with strconv.ParseBool, Number must parse as a float64 and keeps the
