@@ -6,6 +6,8 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-08
+
 ### Added
 
 - `jsonfile`: parse a mod's lenient JSON config (`Parse`), read a value by dotted path (`Lookup`), type raw text as the setting's kind (`Coerce`) and set one value (`Set`), keeping key order and every other value; `SplitPath` unescapes a `.` or `\` in a key, and `Node.Marshal` writes the two-space-indented file.
@@ -38,7 +40,8 @@ Notable changes to `go-cfgedit`. The format follows
 - `ValueError`, `Problem` and `ErrNoSetting`: a refused value carries a stable problem code, the bound broken and the acceptable values; a missing setting is told apart with `errors.Is`.
 - `ini.Set` and `ini.Check`: set `key = value` in an INI section, adding the key or the section when missing, refusing UTF-16 or NUL content and names that would break the lines.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech//usr/local/src/com.github/Rethunk-Tech/go-cfgedit/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Rethunk-Tech//usr/local/src/com.github/Rethunk-Tech/go-cfgedit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Rethunk-Tech/go-cfgedit/releases/tag/v0.1.0
