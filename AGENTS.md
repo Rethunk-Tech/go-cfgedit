@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Package `cfgedit` edits one setting of a BepInEx `.cfg` or a MelonLoader `MelonPreferences.cfg`, and `cfgedit/ini` does
-the same for INI, and `cfgedit/msbuild` for MSBuild project files. Applications that let a person change a game's or plugin's config import it; it imports no consumer
+the same for INI, `cfgedit/msbuild` for MSBuild project files, and `cfgedit/jsonfile` for JSON config files. Applications that let a person change a game's or plugin's config import it; it imports no consumer
 package and does no file I/O.
 
 ## Gate
@@ -37,4 +37,5 @@ cannot resolve that check from PATH.
 | `ini/ini.go` | `ini.Set`, `ini.Check` and the two refusals |
 | `internal/textdoc/textdoc.go` | Lines with their own endings and the BOM |
 | `msbuild/msbuild.go` | `msbuild.Parse` (element byte spans) and the property, item and attribute edits built on it |
+| `jsonfile/jsonfile.go` | `jsonfile.Parse` (lenient JSON) and `jsonfile.Set` (one dotted-path value) |
 | `doc.go` | Package comment |
