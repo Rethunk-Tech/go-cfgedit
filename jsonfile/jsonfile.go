@@ -173,11 +173,7 @@ func encode(buf *bytes.Buffer, n Node, depth int) error {
 	case Number:
 		buf.WriteString(n.Num.String())
 	case String:
-		enc, err := json.Marshal(n.Str)
-		if err != nil {
-			return err
-		}
-		buf.Write(enc)
+		return writeString(buf, n.Str)
 	case Array:
 		if len(n.Arr) == 0 {
 			buf.WriteString("[]")
@@ -206,11 +202,9 @@ func encode(buf *bytes.Buffer, n Node, depth int) error {
 		pad := strings.Repeat("  ", depth+1)
 		for i, p := range n.Obj {
 			buf.WriteString(pad)
-			key, err := json.Marshal(p.Key)
-			if err != nil {
+			if err := writeString(buf, p.Key); err != nil {
 				return err
 			}
-			buf.Write(key)
 			buf.WriteString(": ")
 			if err := encode(buf, p.Value, depth+1); err != nil {
 				return err
@@ -223,6 +217,17 @@ func encode(buf *bytes.Buffer, n Node, depth int) error {
 		buf.WriteString(strings.Repeat("  ", depth))
 		buf.WriteByte('}')
 	}
+	return nil
+}
+
+// writeString writes s as a JSON string without the HTML escaping json.Marshal adds, so "&" and "<" stay as written.
+func writeString(buf *bytes.Buffer, s string) error {
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(s); err != nil {
+		return err
+	}
+	buf.Truncate(buf.Len() - 1) // Encode ends with a newline
 	return nil
 }
 

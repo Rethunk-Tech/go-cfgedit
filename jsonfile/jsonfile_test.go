@@ -304,3 +304,14 @@ func TestCoerceRefusesNonJSONNumbers(t *testing.T) {
 		t.Fatalf("2.50: %+v %v", got, err)
 	}
 }
+
+func TestMarshalKeepsHTMLCharactersUnescaped(t *testing.T) {
+	n, err := Parse([]byte(`{"url": "http://x/?a=1&b=<2>"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _ := n.Marshal()
+	if want := "{\n  \"url\": \"http://x/?a=1&b=<2>\"\n}\n"; string(out) != want {
+		t.Errorf("got %q, want %q", out, want)
+	}
+}
