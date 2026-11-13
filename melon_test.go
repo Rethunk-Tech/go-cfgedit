@@ -191,3 +191,17 @@ func TestMelonSetKeepsWhatFollowsAnUnclosedString(t *testing.T) {
 		t.Fatalf("Set wrote %q", out)
 	}
 }
+
+func TestMelonSplitInlineCountsEscapedBackslashes(t *testing.T) {
+	d := ParseMelon(`[Mod]
+Path = "C:\\" # windows
+`)
+	e := melonByKey(d, "Mod")["Path"]
+	if e.Type != TypeString || e.Value != `C:\` {
+		t.Fatalf("got type %q value %q", e.Type, e.Value)
+	}
+	out, err := d.Set("Mod", "Path", `D:\`)
+	if err != nil || !strings.Contains(out, `Path = "D:\\" # windows`) {
+		t.Fatalf("Set = %q, %v", out, err)
+	}
+}

@@ -100,7 +100,18 @@ func splitInline(v string) (value, comment string) {
 	for i, r := range v {
 		switch {
 		case quote != 0:
-			if r == quote && (quote == '\'' || v[i-1] != '\\') {
+			if r != quote {
+				break
+			}
+			if quote == '\'' {
+				quote = 0
+				break
+			}
+			n := 0
+			for j := i - 1; j >= 0 && v[j] == '\\'; j-- {
+				n++
+			}
+			if n%2 == 0 {
 				quote = 0
 			}
 		case r == '"' || r == '\'':
