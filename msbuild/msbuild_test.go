@@ -245,3 +245,14 @@ func TestMSBuildParentsAndAttrsMatchWithoutCase(t *testing.T) {
 		t.Fatalf("SetAttr = %q, %v", out, err)
 	}
 }
+
+func TestRemoveNestedMatchesDropOuterOnly(t *testing.T) {
+	src := "<Project>\n  <ItemGroup>\n    <A Include=\"x\" />\n  </ItemGroup>\n</Project>\n"
+	got, err := Remove(src, func(e Elem, _ string) bool { return e.Name == "ItemGroup" || e.Name == "A" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "<Project>\n</Project>\n"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

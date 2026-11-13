@@ -265,7 +265,8 @@ func Remove(text string, match func(e Elem, parent string) bool) (string, error)
 		if e.Parent >= 0 {
 			parent = elems[e.Parent].Name
 		}
-		if match(e, parent) {
+		// Elements come in document order, so a match inside an already removed one is gone with it.
+		if match(e, parent) && (len(spans) == 0 || e.Start >= spans[len(spans)-1][1]) {
 			spans = append(spans, lineSpan(text, e.Start, e.End))
 		}
 	}
