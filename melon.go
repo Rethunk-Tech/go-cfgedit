@@ -82,6 +82,7 @@ func ParseMelon(text string) *Melon {
 
 // tableName is a table header's name, a quoted one without its quotes.
 func tableName(line string) string {
+	line, _ = splitInline(line)
 	name := strings.Trim(line, "[] \t")
 	if strings.HasPrefix(name, `"`) {
 		if u, err := strconv.Unquote(name); err == nil {
@@ -117,7 +118,8 @@ func splitInline(v string) (value, comment string) {
 		case r == '"' || r == '\'':
 			quote = r
 		case r == '#':
-			return strings.TrimRight(v[:i], " \t"), " " + v[i:]
+			value = strings.TrimRight(v[:i], " \t")
+			return value, v[len(value):]
 		}
 	}
 	return v, ""

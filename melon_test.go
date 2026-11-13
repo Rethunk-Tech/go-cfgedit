@@ -205,3 +205,14 @@ Path = "C:\\" # windows
 		t.Fatalf("Set = %q, %v", out, err)
 	}
 }
+
+func TestMelonHeaderWithInlineComment(t *testing.T) {
+	m := ParseMelon("[Cat] # note\nKey = 5    # c\n")
+	out, err := m.Set("Cat", "Key", "6")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "[Cat] # note\nKey = 6    # c\n"; out != want {
+		t.Errorf("got %q, want %q", out, want)
+	}
+}
