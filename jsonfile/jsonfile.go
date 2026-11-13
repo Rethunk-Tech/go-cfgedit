@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -53,9 +55,11 @@ var (
 	ErrNotObject = errors.New("is not an object")
 	// ErrNotBool refuses text that strconv.ParseBool cannot read as a boolean.
 	ErrNotBool = errors.New("jsonfile: the text is not a boolean")
-	// ErrNotNumber refuses text that does not parse as a float64.
+	// ErrNotNumber refuses text that is not a finite JSON number.
 	ErrNotNumber = errors.New("jsonfile: the text is not a number")
 )
+
+var jsonNumber = regexp.MustCompile(`^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$`)
 
 // Parse reads a lenient JSON config, as Json.NET writes one: comments, trailing commas, single-quoted strings and
 // unquoted keys are accepted. Key order and each number's written form are kept, and trailing data after the value is
@@ -337,8 +341,8 @@ func cutPath(path []string) (head string, rest []string, ok bool) {
 	return path[0], path[1:], true
 }
 
-// Coerce types raw text as kind: Bool parses it with strconv.ParseBool, Number must parse as a float64 and keeps the
-// trimmed text, and anything else is a String holding raw unchanged.
+// Coerce types raw text as kind: Bool parses it with strconv.ParseBool, Number must be a finite JSON number and keeps
+// the trimmed text, and anything else is a String holding raw unchanged.
 func Coerce(raw string, kind Kind) (Node, error) {
 	if kind == Bool {
 		parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
@@ -349,7 +353,8 @@ func Coerce(raw string, kind Kind) (Node, error) {
 	}
 	if kind == Number {
 		text := strings.TrimSpace(raw)
-		if _, err := strconv.ParseFloat(text, 64); err != nil {
+		n, err := strconv.ParseFloat(text, 64)
+		if err != nil || math.IsInf(n, 0) || math.IsNaN(n) || !jsonNumber.MatchString(text) {
 			return Node{}, ErrNotNumber
 		}
 		return Node{Kind: Number, Num: json.Number(text)}, nil

@@ -291,3 +291,16 @@ func TestSetAndLookupUseTheLastMatchingKey(t *testing.T) {
 		t.Fatalf("got:\n%s", out)
 	}
 }
+
+func TestCoerceRefusesNonJSONNumbers(t *testing.T) {
+	t.Parallel()
+	for _, in := range []string{"NaN", "Inf", "+1", "01"} {
+		if _, err := Coerce(in, Number); !errors.Is(err, ErrNotNumber) {
+			t.Errorf("%q: %v, want ErrNotNumber", in, err)
+		}
+	}
+	got, err := Coerce("2.50", Number)
+	if err != nil || got.Kind != Number || got.Num != "2.50" {
+		t.Fatalf("2.50: %+v %v", got, err)
+	}
+}
