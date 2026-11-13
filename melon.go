@@ -57,7 +57,7 @@ func ParseMelon(text string) *Melon {
 		case strings.HasPrefix(line, "["):
 			section, desc = tableName(line), nil
 		default:
-			eq := strings.Index(raw, "=")
+			eq := keyEnd(raw)
 			if eq < 0 {
 				desc = nil
 				continue
@@ -78,6 +78,27 @@ func ParseMelon(text string) *Melon {
 		}
 	}
 	return d
+}
+
+// keyEnd is the index of the `=` that ends a key, skipping one inside a quoted key; -1 when there is none.
+func keyEnd(raw string) int {
+	var quote byte
+	for i := 0; i < len(raw); i++ {
+		c := raw[i]
+		switch {
+		case quote != 0:
+			if c == '\\' && quote == '"' {
+				i++
+			} else if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '=':
+			return i
+		}
+	}
+	return -1
 }
 
 // tableName is a table header's name, a quoted one without its quotes.

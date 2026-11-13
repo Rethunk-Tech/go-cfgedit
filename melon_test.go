@@ -216,3 +216,14 @@ func TestMelonHeaderWithInlineComment(t *testing.T) {
 		t.Errorf("got %q, want %q", out, want)
 	}
 }
+
+func TestMelonQuotedKeyMayContainEquals(t *testing.T) {
+	d := ParseMelon("[M]\n\"a=b\" = 1\n")
+	es := d.Entries()
+	if len(es) != 1 || es[0].Key != "a=b" || es[0].Value != "1" {
+		t.Fatalf("entries %+v", es)
+	}
+	if out, err := d.Set("M", "a=b", "2"); err != nil || out != "[M]\n\"a=b\" = 2\n" {
+		t.Fatalf("%q %v", out, err)
+	}
+}
