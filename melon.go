@@ -122,18 +122,7 @@ func splitInline(v string) (value, comment string) {
 	for i, r := range v {
 		switch {
 		case quote != 0:
-			if r != quote {
-				break
-			}
-			if quote == '\'' {
-				quote = 0
-				break
-			}
-			n := 0
-			for j := i - 1; j >= 0 && v[j] == '\\'; j-- {
-				n++
-			}
-			if n%2 == 0 {
+			if r == quote && (quote == '\'' || !escaped(v, i)) {
 				quote = 0
 			}
 		case r == '"' || r == '\'':
@@ -144,6 +133,15 @@ func splitInline(v string) (value, comment string) {
 		}
 	}
 	return v, ""
+}
+
+// escaped reports whether the byte at v[i] follows an odd run of backslashes, so a basic string's quote there is text.
+func escaped(v string, i int) bool {
+	n := 0
+	for j := i - 1; j >= 0 && v[j] == '\\'; j-- {
+		n++
+	}
+	return n%2 == 1
 }
 
 // valueEnd is the line a value opening on line i ends on: a multi-line string runs to its closing quotes, an array
@@ -191,7 +189,7 @@ func bracketDepth(line string) int {
 	for i, r := range value {
 		switch {
 		case quote != 0:
-			if r == quote && (quote == '\'' || value[i-1] != '\\') {
+			if r == quote && (quote == '\'' || !escaped(value, i)) {
 				quote = 0
 			}
 		case r == '"' || r == '\'':

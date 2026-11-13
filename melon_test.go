@@ -227,3 +227,14 @@ func TestMelonQuotedKeyMayContainEquals(t *testing.T) {
 		t.Fatalf("%q %v", out, err)
 	}
 }
+
+func TestMelonArrayEndCountsEscapedBackslashes(t *testing.T) {
+	d := ParseMelon("[Mod]\nDirs = [\n  \"C:\\\\\"]\nAfter = 1\n")
+	if e := melonByKey(d, "Mod")["Dirs"]; e.Value != "[\n  \"C:\\\\\"]" {
+		t.Fatalf("Dirs value %q", e.Value)
+	}
+	out, err := d.Set("Mod", "Dirs", `["D:\\"]`)
+	if err != nil || out != "[Mod]\nDirs = [\"D:\\\\\"]\nAfter = 1\n" {
+		t.Fatalf("Set = %q, %v", out, err)
+	}
+}
