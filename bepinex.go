@@ -181,8 +181,7 @@ func (d *BepInEx) Entries() []Entry {
 }
 
 func (d *BepInEx) find(section, key string) (bepEntry, bool) {
-	for i := len(d.entries) - 1; i >= 0; i-- {
-		e := d.entries[i]
+	for _, e := range slices.Backward(d.entries) {
 		if e.Section == section && e.Key == key {
 			return e, true
 		}
