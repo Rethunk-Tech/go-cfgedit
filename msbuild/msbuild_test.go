@@ -222,3 +222,26 @@ func TestSetPropertyKeepsSelfClosingAttributes(t *testing.T) {
 		t.Fatalf("SetProperty = %q, %v", out, err)
 	}
 }
+
+func TestMSBuildParentsAndAttrsMatchWithoutCase(t *testing.T) {
+	in := `<Project><propertyGroup><Version>1.0.0</Version></propertyGroup><ItemGroup><PackageReference include="P" Version="1" /></ItemGroup></Project>`
+	if v := Property(in, "Version"); v != "1.0.0" {
+		t.Fatalf("Property = %q", v)
+	}
+	out, err := SetProperty(in, "Version", "2.0.0")
+	if err != nil || !strings.Contains(out, "<Version>2.0.0</Version>") || strings.Contains(out, "<PropertyGroup>") {
+		t.Fatalf("SetProperty = %q, %v", out, err)
+	}
+	items, err := Items(in, "PackageReference")
+	if err != nil || len(items) != 1 || items[0].Include != "P" {
+		t.Fatalf("Items = %+v, %v", items, err)
+	}
+	out, err = SetItem(in, Item{Type: "PackageReference", Include: "P", Attrs: map[string]string{"Version": "2"}}, []string{"PackageReference"}, func(Item) bool { return false })
+	if err != nil || strings.Count(out, "PackageReference") != 1 || !strings.Contains(out, `Version="2"`) {
+		t.Fatalf("SetItem = %q, %v", out, err)
+	}
+	out, err = SetAttr(`<P><Ref path="x" /></P>`, func(e Elem, _ string) bool { return e.Name == "Ref" }, "Path", "y")
+	if err != nil || out != `<P><Ref Path="y" /></P>` {
+		t.Fatalf("SetAttr = %q, %v", out, err)
+	}
+}

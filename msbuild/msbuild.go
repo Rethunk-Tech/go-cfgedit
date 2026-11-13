@@ -115,7 +115,7 @@ func Property(text, name string) string {
 
 func property(elems []Elem, name string) (Elem, bool) {
 	for _, e := range elems {
-		if strings.EqualFold(e.Name, name) && e.Parent >= 0 && elems[e.Parent].Name == "PropertyGroup" {
+		if strings.EqualFold(e.Name, name) && e.Parent >= 0 && strings.EqualFold(elems[e.Parent].Name, "PropertyGroup") {
 			return e, true
 		}
 	}
@@ -155,7 +155,7 @@ func SetRawProperty(text, name, raw string) (string, error) {
 	}
 	line := "<" + name + ">" + raw + "</" + name + ">"
 	for _, e := range elems {
-		if e.Name == "PropertyGroup" && e.Parent == 0 {
+		if strings.EqualFold(e.Name, "PropertyGroup") && e.Parent == 0 {
 			return appendChild(text, elems, e, line), nil
 		}
 	}
@@ -164,7 +164,9 @@ func SetRawProperty(text, name, raw string) (string, error) {
 
 // RemoveProperty drops every property called name, with its line.
 func RemoveProperty(text, name string) (string, error) {
-	return Remove(text, func(e Elem, parent string) bool { return strings.EqualFold(e.Name, name) && parent == "PropertyGroup" })
+	return Remove(text, func(e Elem, parent string) bool {
+		return strings.EqualFold(e.Name, name) && strings.EqualFold(parent, "PropertyGroup")
+	})
 }
 
 // Item is an item element: its type, its Include and its other attributes.
@@ -182,8 +184,8 @@ func Items(text string, types ...string) ([]Item, error) {
 	}
 	var out []Item
 	for _, e := range elems {
-		if hasType(types, e.Name) && e.Parent >= 0 && elems[e.Parent].Name == "ItemGroup" {
-			out = append(out, Item{Type: e.Name, Include: e.Attrs["Include"], Attrs: e.Attrs})
+		if hasType(types, e.Name) && e.Parent >= 0 && strings.EqualFold(elems[e.Parent].Name, "ItemGroup") {
+			out = append(out, Item{Type: e.Name, Include: attrValue(e.Attrs, "Include"), Attrs: e.Attrs})
 		}
 	}
 	return out, nil
@@ -212,13 +214,13 @@ func SetItem(text string, item Item, same []string, after func(Item) bool) (stri
 	xmlText := item.xml()
 	var last *Elem
 	for i, e := range elems {
-		if e.Parent < 0 || elems[e.Parent].Name != "ItemGroup" {
+		if e.Parent < 0 || !strings.EqualFold(elems[e.Parent].Name, "ItemGroup") {
 			continue
 		}
-		if hasType(same, e.Name) && strings.EqualFold(e.Attrs["Include"], item.Include) {
+		if hasType(same, e.Name) && strings.EqualFold(attrValue(e.Attrs, "Include"), item.Include) {
 			return text[:e.Start] + xmlText + text[e.End:], nil
 		}
-		if after(Item{Type: e.Name, Include: e.Attrs["Include"], Attrs: e.Attrs}) {
+		if after(Item{Type: e.Name, Include: attrValue(e.Attrs, "Include"), Attrs: e.Attrs}) {
 			last = &elems[i]
 		}
 	}
@@ -239,6 +241,15 @@ func SetItem(text string, item Item, same []string, after func(Item) bool) (stri
 // hasType reports whether typ is one of types; MSBuild compares item types case-insensitively.
 func hasType(types []string, typ string) bool {
 	return slices.ContainsFunc(types, func(t string) bool { return strings.EqualFold(t, typ) })
+}
+
+func attrValue(attrs map[string]string, name string) string {
+	for k, v := range attrs {
+		if strings.EqualFold(k, name) {
+			return v
+		}
+	}
+	return ""
 }
 
 // Remove drops every element match picks, given its parent's name, with the line it stands on when nothing else
@@ -338,7 +349,7 @@ func attrSpan(tag, attr string) (from, to int, ok bool) {
 			return 0, 0, false
 		}
 		p += closing + 2
-		if name == attr {
+		if strings.EqualFold(name, attr) {
 			return start, p, true
 		}
 	}
