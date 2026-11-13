@@ -256,3 +256,23 @@ func TestRemoveNestedMatchesDropOuterOnly(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestPropertyUsesTheLastUnconditionalDefinition(t *testing.T) {
+	project := `<Project>
+<PropertyGroup><V>1</V></PropertyGroup>
+<PropertyGroup><V>2</V></PropertyGroup>
+<PropertyGroup><V Condition="'$(X)'=='y'">3</V></PropertyGroup>
+<PropertyGroup Condition="'$(X)'=='y'"><V>4</V></PropertyGroup>
+</Project>`
+	if v := Property(project, "V"); v != "2" {
+		t.Fatalf("read %q, want the second definition", v)
+	}
+	got, err := SetProperty(project, "V", "9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Replace(project, "<V>2</V>", "<V>9</V>", 1)
+	if got != want {
+		t.Fatalf("edit changed the wrong element:\n%s", got)
+	}
+}

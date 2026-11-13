@@ -101,7 +101,7 @@ func Parse(text string) ([]Elem, error) {
 	return out, nil
 }
 
-// Property is the first property called name, unescaped; empty when the file has none or does not parse.
+// Property is the effective property called name (the last unconditional one), unescaped; empty when the file has none or does not parse.
 func Property(text, name string) string {
 	elems, err := Parse(text)
 	if err != nil {
@@ -113,16 +113,28 @@ func Property(text, name string) string {
 	return ""
 }
 
+// property finds the definition MSBuild's evaluation ends with: the last one in document order. Conditions are not
+// evaluated, so a property or group carrying a Condition is skipped while any unconditional definition exists; a name
+// defined only conditionally resolves to its last definition, since that is all there is to read or edit.
 func property(elems []Elem, name string) (Elem, bool) {
+	var plain, last Elem
+	havePlain, haveLast := false, false
 	for _, e := range elems {
-		if strings.EqualFold(e.Name, name) && e.Parent >= 0 && strings.EqualFold(elems[e.Parent].Name, "PropertyGroup") {
-			return e, true
+		if e.Parent < 0 || !strings.EqualFold(e.Name, name) || !strings.EqualFold(elems[e.Parent].Name, "PropertyGroup") {
+			continue
+		}
+		last, haveLast = e, true
+		if attrValue(e.Attrs, "Condition") == "" && attrValue(elems[e.Parent].Attrs, "Condition") == "" {
+			plain, havePlain = e, true
 		}
 	}
-	return Elem{}, false
+	if havePlain {
+		return plain, true
+	}
+	return last, haveLast
 }
 
-// SetProperty sets the first property called name to value, escaped for MSBuild and XML; a missing one is added to the
+// SetProperty sets the effective property called name (the last unconditional one) to value, escaped for MSBuild and XML; a missing one is added to the
 // first PropertyGroup, or to a new one.
 func SetProperty(text, name, value string) (string, error) {
 	return SetRawProperty(text, name, Escape(value))
