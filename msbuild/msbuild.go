@@ -147,7 +147,9 @@ func SetRawProperty(text, name, raw string) (string, error) {
 	}
 	if e, ok := property(elems, name); ok {
 		if e.InnerStart == e.InnerEnd && e.End == e.InnerStart {
-			return text[:e.Start] + "<" + name + ">" + raw + "</" + name + ">" + text[e.End:], nil
+			open := strings.TrimSuffix(strings.TrimRight(text[e.Start:e.End], " \t\r\n"), "/>")
+			open = strings.TrimRight(open, " \t")
+			return text[:e.Start] + open + ">" + raw + "</" + e.Name + ">" + text[e.End:], nil
 		}
 		return text[:e.InnerStart] + raw + text[e.InnerEnd:], nil
 	}

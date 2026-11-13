@@ -214,3 +214,11 @@ func TestSetAttrSkipsAttributeNamesInsideValues(t *testing.T) {
 		t.Fatalf("added attribute: %q, %v", out, err)
 	}
 }
+
+func TestSetPropertyKeepsSelfClosingAttributes(t *testing.T) {
+	in := `<Project><PropertyGroup><Empty Condition="'$(CI)'==''" /></PropertyGroup></Project>`
+	out, err := SetProperty(in, "Empty", "x")
+	if err != nil || !strings.Contains(out, `Condition="'$(CI)'==''"`) || !strings.Contains(out, ">x</Empty>") {
+		t.Fatalf("SetProperty = %q, %v", out, err)
+	}
+}
