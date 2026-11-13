@@ -232,3 +232,11 @@ func TestBepInExLoneCRIsALineBreak(t *testing.T) {
 		t.Fatalf("Set = %q, %v", out, err)
 	}
 }
+
+func TestBepInExSetUpdatesLastDuplicateKey(t *testing.T) {
+	d := ParseBepInEx("[A]\n# Setting type: Int32\nK = 1\nK = 2\n")
+	out, err := d.Set("A", "K", "9")
+	if err != nil || out != "[A]\n# Setting type: Int32\nK = 1\nK = 9\n" {
+		t.Fatalf("Set = %q, %v", out, err)
+	}
+}
