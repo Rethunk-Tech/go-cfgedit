@@ -275,7 +275,12 @@ func (n Node) Lookup(path []string) (Node, bool) {
 		if n.Kind != Object {
 			return Node{}, false
 		}
-		i := slices.IndexFunc(n.Obj, func(p Pair) bool { return strings.EqualFold(p.Key, key) })
+		i := -1
+		for j, p := range n.Obj {
+			if strings.EqualFold(p.Key, key) {
+				i = j
+			}
+		}
 		if i < 0 {
 			return Node{}, false
 		}
@@ -295,7 +300,8 @@ func Set(n Node, path []string, v Node) (Node, error) {
 	if n.Kind != Object {
 		return n, fmt.Errorf("%s %w", head, ErrNotObject)
 	}
-	for i, p := range n.Obj {
+	for i := len(n.Obj) - 1; i >= 0; i-- {
+		p := n.Obj[i]
 		if !strings.EqualFold(p.Key, head) {
 			continue
 		}

@@ -268,3 +268,26 @@ func equal(a, b Node) bool {
 	}
 	return true
 }
+
+func TestSetAndLookupUseTheLastMatchingKey(t *testing.T) {
+	t.Parallel()
+	n, err := Parse([]byte(`{"Enabled": false, "enabled": true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := n.Lookup([]string{"enabled"})
+	if !ok || got.Kind != Bool || !got.Bool {
+		t.Fatalf("Lookup = %+v %v", got, ok)
+	}
+	n, err = Set(n, []string{"enabled"}, Node{Kind: Bool, Bool: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := n.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), `"enabled": false`) || strings.Contains(string(out), `"enabled": true`) {
+		t.Fatalf("got:\n%s", out)
+	}
+}
