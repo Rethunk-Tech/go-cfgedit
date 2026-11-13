@@ -12,7 +12,7 @@ tool (
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/Rethunk-Tech/go-lenientjson v0.1.1
+	github.com/Rethunk-Tech/go-lenientjson v0.2.0
 )
 
 require (
