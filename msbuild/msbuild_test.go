@@ -270,6 +270,31 @@ func TestSetItemWithoutAfterAppendsANewGroup(t *testing.T) {
 	}
 }
 
+func TestPropertyIgnoresDefinitionsInsideChooseAndTarget(t *testing.T) {
+	in := `<Project>
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+  <Choose>
+    <When Condition="'$(OS)' == 'Windows_NT'">
+      <PropertyGroup><TargetFramework>net48</TargetFramework></PropertyGroup>
+    </When>
+  </Choose>
+  <Target Name="Build">
+    <PropertyGroup><TargetFramework>net7.0</TargetFramework></PropertyGroup>
+  </Target>
+</Project>`
+	if v := Property(in, "TargetFramework"); v != "net8.0" {
+		t.Fatalf("Property = %q, want the project's own definition", v)
+	}
+	got, err := SetProperty(in, "TargetFramework", "net9.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Replace(in, "<TargetFramework>net8.0</TargetFramework>", "<TargetFramework>net9.0</TargetFramework>", 1)
+	if got != want {
+		t.Fatalf("SetProperty wrote the wrong branch:\n%s", got)
+	}
+}
+
 func TestPropertyUsesTheLastUnconditionalDefinition(t *testing.T) {
 	project := `<Project>
 <PropertyGroup><V>1</V></PropertyGroup>

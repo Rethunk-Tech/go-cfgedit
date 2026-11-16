@@ -115,12 +115,13 @@ func Property(text, name string) string {
 
 // property finds the definition MSBuild's evaluation ends with: the last one in document order. Conditions are not
 // evaluated, so a property or group carrying a Condition is skipped while any unconditional definition exists; a name
-// defined only conditionally resolves to its last definition, since that is all there is to read or edit.
+// defined only conditionally resolves to its last definition, since that is all there is to read or edit. A group
+// under Choose/When or Target sets the property only for that branch or run, never as the project's own value.
 func property(elems []Elem, name string) (Elem, bool) {
 	var plain, last Elem
 	havePlain, haveLast := false, false
 	for _, e := range elems {
-		if e.Parent < 0 || !strings.EqualFold(e.Name, name) || !strings.EqualFold(elems[e.Parent].Name, "PropertyGroup") {
+		if e.Parent < 0 || elems[e.Parent].Parent != 0 || !strings.EqualFold(e.Name, name) || !strings.EqualFold(elems[e.Parent].Name, "PropertyGroup") {
 			continue
 		}
 		last, haveLast = e, true
