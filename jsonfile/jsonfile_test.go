@@ -183,6 +183,18 @@ func TestSetAppendsAMissingLastKey(t *testing.T) {
 	}
 }
 
+func TestSetKeepsAByteOrderMarkAndCRLF(t *testing.T) {
+	t.Parallel()
+	in := "\ufeff{\r\n\t\"a\": 1,\r\n\t\"b\": 2\r\n}\r\n"
+	out, err := Set(in, []string{"B"}, Node{Kind: Number, Num: "3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "\ufeff{\r\n\t\"a\": 1,\r\n\t\"b\": 3\r\n}\r\n"; out != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", out, want)
+	}
+}
+
 func TestSetRefusesAStrayPath(t *testing.T) {
 	t.Parallel()
 	in := `{"a":{"b":1},"s":"x"}`

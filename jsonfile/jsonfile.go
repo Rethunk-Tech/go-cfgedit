@@ -321,6 +321,10 @@ func Set(content string, path []string, v Node) (string, error) {
 		return string(out), nil
 	}
 	scan := &scanner{text: content}
+	// Parse reads through a UTF-8 byte order mark, which the scanner must step over to find the first brace.
+	if strings.HasPrefix(content, "\ufeff") {
+		scan.at = len("\ufeff")
+	}
 	for i, key := range path {
 		if n.Kind != Object {
 			return content, fmt.Errorf("%s %w", key, ErrNotObject)
