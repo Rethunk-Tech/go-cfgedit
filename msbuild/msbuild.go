@@ -136,7 +136,7 @@ func property(elems []Elem, name string) (Elem, bool) {
 }
 
 // SetProperty sets the effective property called name (the last unconditional one) to value, escaped for MSBuild and XML; a missing one is added to the
-// first PropertyGroup, or to a new one.
+// first unconditional PropertyGroup, or to a new one.
 func SetProperty(text, name, value string) (string, error) {
 	return SetRawProperty(text, name, Escape(value))
 }
@@ -167,8 +167,9 @@ func SetRawProperty(text, name, raw string) (string, error) {
 		return text[:e.InnerStart] + raw + text[e.InnerEnd:], nil
 	}
 	line := "<" + name + ">" + raw + "</" + name + ">"
+	// A group with a Condition holds the property only in that configuration, so a new one needs its own group.
 	for _, e := range elems {
-		if strings.EqualFold(e.Name, "PropertyGroup") && e.Parent == 0 {
+		if strings.EqualFold(e.Name, "PropertyGroup") && e.Parent == 0 && attrValue(e.Attrs, "Condition") == "" {
 			return appendChild(text, elems, e, line), nil
 		}
 	}

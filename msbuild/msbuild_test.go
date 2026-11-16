@@ -295,6 +295,25 @@ func TestPropertyIgnoresDefinitionsInsideChooseAndTarget(t *testing.T) {
 	}
 }
 
+func TestSetPropertyAddsToAnUnconditionalGroup(t *testing.T) {
+	in := `<Project>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'"><DebugType>portable</DebugType></PropertyGroup>
+</Project>`
+	got, err := SetProperty(in, "Nullable", "enable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `<Project>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'"><DebugType>portable</DebugType></PropertyGroup>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>`
+	if got != want {
+		t.Fatalf("SetProperty = %q, want %q", got, want)
+	}
+}
+
 func TestPropertyUsesTheLastUnconditionalDefinition(t *testing.T) {
 	project := `<Project>
 <PropertyGroup><V>1</V></PropertyGroup>
