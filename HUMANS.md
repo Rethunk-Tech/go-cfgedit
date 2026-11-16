@@ -54,7 +54,7 @@ func main() {
 | `Melon` `Entry.Value` | A string is unquoted and unescaped; a `TypeRaw` value (inline table, date, hex integer) is its TOML text, written as typed. |
 | Missing key | The error wraps `ErrNoSetting`; the message is `no setting <key> in [<section>]`. |
 | Refused value | `*ValueError`; `Problem` strings are stable, `Error()` is an English sentence for logs, `Min`, `Max` and `Values` carry the detail. |
-| Duplicate key | `Set` edits the first one. |
+| Duplicate key | `Set` edits the last one. |
 | `ini.Set` | Names compared without case, comments ignored; a missing key is appended inside its section, a missing section at the end. The edited line becomes `key = value`, dropping its indentation and inline comment. |
 | `ini.Set` refusals | `ErrNotText` for UTF-16 or NUL content, `ErrBadName` for a key that is empty, holds `=` or starts with `;`, `#` or `[`, a line break or NUL in a key or value, or `]` in a section. The text is returned untouched. |
 | `msbuild` | `Parse` finds each element's byte span; `SetProperty`, `SetRawProperty`, `RemoveProperty`, `SetItem`, `Remove` and `SetAttr` change only those bytes, so comments, indentation and attribute order stay. Values go through `Escape`/`EscapeXML`; `CheckValue` refuses a character XML cannot carry (`ErrBadChar`). |

@@ -28,7 +28,7 @@ func Check(content string) error {
 	return nil
 }
 
-// Set gives key the value inside section ("" for any section, taking the first match). The first line holding key in
+// Set gives key the value inside section ("" for any section, taking the last match). The last line holding key in
 // the section (names compared without case, comments ignored) is rewritten as `key = value`, which drops its
 // indentation and any inline comment; a missing key is added at the end of its section, and a missing section is
 // created at the end of the file. A leading UTF-8 byte order mark and every other line's ending are kept. Names are
@@ -66,11 +66,11 @@ func Set(content, section, key, value string) (string, error) {
 	return out, nil
 }
 
-// scan finds the line holding key in section, or -1. last is the index after the final non-blank line of the section,
+// scan finds the last line holding key in section, or -1. last is the index after the final non-blank line of the section,
 // where a missing key goes (-1 when it has none), and sectionSeen says whether the section exists.
 func scan(lines []string, section, key string) (at, last int, sectionSeen bool) {
 	inWanted := section == ""
-	last, sectionSeen = -1, section == ""
+	at, last, sectionSeen = -1, -1, section == ""
 	for i, raw := range lines {
 		line := strings.TrimSpace(raw)
 		switch {
@@ -90,10 +90,10 @@ func scan(lines []string, section, key string) (at, last int, sectionSeen bool) 
 		}
 		last = i + 1
 		if k, _, ok := strings.Cut(line, "="); ok && strings.EqualFold(strings.TrimSpace(k), key) {
-			return i, last, sectionSeen
+			at = i
 		}
 	}
-	return -1, last, sectionSeen
+	return at, last, sectionSeen
 }
 
 // insert adds the missing key, and its section when that is missing too, ending every added line with d's line ending.

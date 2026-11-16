@@ -329,7 +329,8 @@ func (d *Melon) Entries() []Entry {
 // value of the wrong type and one that would leave a file that parsed unparsable (BreaksTOML); a missing setting wraps
 // ErrNoSetting.
 func (d *Melon) Set(section, key, value string) (string, error) {
-	for _, e := range d.entries {
+	for i := len(d.entries) - 1; i >= 0; i-- {
+		e := d.entries[i]
 		if e.Section != section || e.Key != key {
 			continue
 		}
