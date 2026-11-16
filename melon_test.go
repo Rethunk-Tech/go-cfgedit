@@ -252,3 +252,17 @@ func TestParseMelonLoneCRIsALineEnding(t *testing.T) {
 		t.Fatalf("%q %v", out, err)
 	}
 }
+
+// TOML forbids a leading-zero integer, so 007 is raw (as hex and dates are) rather than int, whose writer would refuse it.
+func TestParseMelonLeadingZeroIsRaw(t *testing.T) {
+	const text = "[A]\nN = 007\n"
+	d := ParseMelon(text)
+	got := melonByKey(d, "A")["N"]
+	if got.Type != TypeRaw || got.Value != "007" {
+		t.Fatalf("got type %q value %q", got.Type, got.Value)
+	}
+	out, err := d.Set("A", "N", "007")
+	if err != nil || out != text {
+		t.Fatalf("%q %v", out, err)
+	}
+}

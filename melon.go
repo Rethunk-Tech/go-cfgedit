@@ -215,7 +215,9 @@ func melonType(v string) (typ Type, shown string) {
 	case v == "true" || v == "false":
 		return TypeBool, v
 	case tomlInt.MatchString(v):
-		return TypeInt, v
+		if !leadingZero.MatchString(v) {
+			return TypeInt, v
+		}
 	case tomlFloat.MatchString(v):
 		return TypeFloat, v
 	case strings.HasPrefix(v, `"`):
