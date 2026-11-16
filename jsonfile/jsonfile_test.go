@@ -95,73 +95,101 @@ func TestSplitPathKeepsADottedKeyWhole(t *testing.T) {
 
 func TestSetKeepsTheFilesKeySpelling(t *testing.T) {
 	t.Parallel()
-	n, err := Parse([]byte(`{"other":42, "ENABLED":false}`))
+	in := `{"other":42, "ENABLED":false}`
+	out, err := Set(in, []string{"enabled"}, Node{Kind: Bool, Bool: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	n, err = Set(n, []string{"enabled"}, Node{Kind: Bool, Bool: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := n.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "{\n  \"other\": 42,\n  \"ENABLED\": true\n}\n"
-	if string(out) != want {
+	want := `{"other":42, "ENABLED":true}`
+	if out != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}
 }
 
 func TestSetKeepsANumberAsWritten(t *testing.T) {
 	t.Parallel()
-	n, err := Parse([]byte(`{"z":1,"nested":{"foo":1.50}}`))
+	in := `{"z":1,"nested":{"foo":1.50}}`
+	out, err := Set(in, []string{"nested", "foo"}, Node{Kind: Number, Num: "2.25"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	n, err = Set(n, []string{"nested", "foo"}, Node{Kind: Number, Num: "2.25"})
+	if want := `{"z":1,"nested":{"foo":2.25}}`; out != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
+	}
+}
+
+// TestSetChangesOnlyTheValue holds the package promise: comments, spacing and key order survive an edit, and the one
+// byte range that differs is the old value's.
+func TestSetChangesOnlyTheValue(t *testing.T) {
+	t.Parallel()
+	in := "{\n" +
+		"  // the window size\n" +
+		"  \"Width\" :   1920,\n" +
+		"\t\"Height\":1080,   /* kept */\n" +
+		"  \"Title\": \"a  b\"\n" +
+		"}\n"
+	out, err := Set(in, []string{"width"}, Node{Kind: Number, Num: "1280"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := n.Marshal()
-	if err != nil {
-		t.Fatal(err)
+	want := strings.Replace(in, "1920", "1280", 1)
+	if out != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", out, want)
 	}
-	if !strings.Contains(string(out), "2.25") || strings.Index(string(out), `"z"`) > strings.Index(string(out), `"nested"`) {
-		t.Fatalf("got:\n%s", out)
+}
+
+func TestSetLeavesAnUnchangedFileByteIdentical(t *testing.T) {
+	t.Parallel()
+	in := "{\n\t'a': [1, 2,], // c\n\t\"b\": {\"c\": true},\n}\n"
+	for _, tc := range []struct {
+		path []string
+		v    Node
+	}{
+		{[]string{"a"}, Node{Kind: Array, Arr: []Node{{Kind: Number, Num: "1"}, {Kind: Number, Num: "2"}}}},
+		{[]string{"b", "c"}, Node{Kind: Bool, Bool: true}},
+	} {
+		out, err := Set(in, tc.path, tc.v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != in {
+			t.Errorf("%q: got\n%q\nwant it unchanged", tc.path, out)
+		}
 	}
 }
 
 func TestSetAppendsAMissingLastKey(t *testing.T) {
 	t.Parallel()
-	n, err := Parse([]byte(`{"a":1}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	n, err = Set(n, []string{"New.Key"}, Node{Kind: String, Str: "v"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := n.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "{\n  \"a\": 1,\n  \"New.Key\": \"v\"\n}\n"
-	if string(out) != want {
-		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
+	for _, tc := range []struct{ in, want string }{
+		{"{\n  \"a\": 1\n}\n", "{\n  \"a\": 1,\n  \"New.Key\": \"v\"\n}\n"},
+		{
+			"{\r\n    \"a\": {\r\n        \"b\": true\r\n    }\r\n}",
+			"{\r\n    \"a\": {\r\n        \"b\": true,\r\n        \"New.Key\": \"v\"\r\n    }\r\n}",
+		},
+		{"{\"a\":1}", `{"a":1, "New.Key": "v"}`},
+		{"{}", `{"New.Key": "v"}`},
+	} {
+		path := []string{"New.Key"}
+		if strings.Contains(tc.in, `"a": {`) {
+			path = []string{"a", "New.Key"}
+		}
+		out, err := Set(tc.in, path, Node{Kind: String, Str: "v"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != tc.want {
+			t.Errorf("got:\n%q\nwant:\n%q", out, tc.want)
+		}
 	}
 }
 
 func TestSetRefusesAStrayPath(t *testing.T) {
 	t.Parallel()
-	n, err := Parse([]byte(`{"a":{"b":1},"s":"x"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Set(n, []string{"a", "missing", "c"}, Node{Kind: Null}); !errors.Is(err, ErrUnknownKey) {
+	in := `{"a":{"b":1},"s":"x"}`
+	if _, err := Set(in, []string{"a", "missing", "c"}, Node{Kind: Null}); !errors.Is(err, ErrUnknownKey) {
 		t.Errorf("got %v, want ErrUnknownKey", err)
 	}
-	if _, err := Set(n, []string{"s", "c"}, Node{Kind: Null}); !errors.Is(err, ErrNotObject) {
+	if _, err := Set(in, []string{"s", "c"}, Node{Kind: Null}); !errors.Is(err, ErrNotObject) {
 		t.Errorf("got %v, want ErrNotObject", err)
 	}
 }
@@ -271,7 +299,8 @@ func equal(a, b Node) bool {
 
 func TestSetAndLookupUseTheLastMatchingKey(t *testing.T) {
 	t.Parallel()
-	n, err := Parse([]byte(`{"Enabled": false, "enabled": true}`))
+	in := `{"Enabled": false, "enabled": true}`
+	n, err := Parse([]byte(in))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,16 +308,12 @@ func TestSetAndLookupUseTheLastMatchingKey(t *testing.T) {
 	if !ok || got.Kind != Bool || !got.Bool {
 		t.Fatalf("Lookup = %+v %v", got, ok)
 	}
-	n, err = Set(n, []string{"enabled"}, Node{Kind: Bool, Bool: false})
+	out, err := Set(in, []string{"enabled"}, Node{Kind: Bool, Bool: false})
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := n.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(out), `"enabled": false`) || strings.Contains(string(out), `"enabled": true`) {
-		t.Fatalf("got:\n%s", out)
+	if want := `{"Enabled": false, "enabled": false}`; out != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", out, want)
 	}
 }
 

@@ -10,7 +10,6 @@ import (
 	"io"
 	"math"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -298,52 +297,327 @@ func (n Node) Lookup(path []string) (Node, bool) {
 	return n, true
 }
 
-// Set replaces the value at path, matching keys case-insensitively; the file's own key spelling is kept. A missing last
-// key is appended to its object under the spelling in path. A missing intermediate key wraps ErrUnknownKey, and an
-// intermediate value that is not an object wraps ErrNotObject.
-func Set(n Node, path []string, v Node) (Node, error) {
-	head, rest, ok := cutPath(path)
-	if !ok {
-		return v, nil
+// Set replaces the value at path in content, matching keys case-insensitively; the file's own key spelling is kept,
+// and every byte outside the replaced value stays as written. A missing last key is appended to its object under the
+// spelling in path. A missing intermediate key wraps ErrUnknownKey, and an intermediate value that is not an object
+// wraps ErrNotObject. An empty path returns v as the whole content.
+func Set(content string, path []string, v Node) (string, error) {
+	n, err := Parse([]byte(content))
+	if err != nil {
+		return content, err
 	}
-	if n.Kind != Object {
-		return n, fmt.Errorf("%s %w", head, ErrNotObject)
+	enc, err := encodeInline(v)
+	if err != nil {
+		return content, err
 	}
-	for i := len(n.Obj) - 1; i >= 0; i-- {
-		p := n.Obj[i]
-		if !strings.EqualFold(p.Key, head) {
-			continue
+	if len(path) == 0 {
+		if same(n, v) {
+			return content, nil
 		}
-		child := v
-		if len(rest) > 0 {
-			var err error
-			child, err = Set(p.Value, rest, v)
-			if err != nil {
-				return n, err
+		out, err := v.Marshal()
+		if err != nil {
+			return content, err
+		}
+		return string(out), nil
+	}
+	scan := &scanner{text: content}
+	for i, key := range path {
+		if n.Kind != Object {
+			return content, fmt.Errorf("%s %w", key, ErrNotObject)
+		}
+		obj, err := scan.object()
+		if err != nil {
+			return content, err
+		}
+		at := -1
+		for j, p := range n.Obj {
+			if strings.EqualFold(p.Key, key) {
+				at = j
 			}
 		}
-		// The caller's object is shared with its Node, so the edit goes into a copy.
-		out := slices.Clone(n.Obj)
-		out[i].Value = child
-		n.Obj = out
-		return n, nil
+		if at < 0 {
+			if i < len(path)-1 {
+				return content, fmt.Errorf("%w %s", ErrUnknownKey, key)
+			}
+			return insertMember(content, obj, key, enc)
+		}
+		if i == len(path)-1 {
+			if same(n.Obj[at].Value, v) {
+				return content, nil
+			}
+			m := obj.members[at]
+			return content[:m.start] + string(enc) + content[m.end:], nil
+		}
+		// The scanner walks the file in step with the parsed keys, so the nth pair is the nth member.
+		n = n.Obj[at].Value
+		scan.at = obj.members[at].start
 	}
-	if len(rest) > 0 {
-		return n, fmt.Errorf("%w %s", ErrUnknownKey, head)
-	}
-	out := make([]Pair, len(n.Obj)+1)
-	copy(out, n.Obj)
-	out[len(n.Obj)] = Pair{Key: head, Value: v}
-	n.Obj = out
-	return n, nil
+	return content, nil
 }
 
-// cutPath splits path into its first key and the rest; ok is false for an empty path.
-func cutPath(path []string) (head string, rest []string, ok bool) {
-	if len(path) == 0 {
-		return "", nil, false
+// same reports whether two nodes hold the same value, so a Set that changes nothing returns the file untouched.
+func same(a, b Node) bool {
+	if a.Kind != b.Kind || a.Num != b.Num || a.Str != b.Str || a.Bool != b.Bool || len(a.Arr) != len(b.Arr) || len(a.Obj) != len(b.Obj) {
+		return false
 	}
-	return path[0], path[1:], true
+	for i := range a.Arr {
+		if !same(a.Arr[i], b.Arr[i]) {
+			return false
+		}
+	}
+	for i := range a.Obj {
+		if a.Obj[i].Key != b.Obj[i].Key || !same(a.Obj[i].Value, b.Obj[i].Value) {
+			return false
+		}
+	}
+	return true
+}
+
+// insertMember adds `"key": value` at the end of obj, on a line of its own indented like the members already there.
+func insertMember(content string, obj objectAt, key string, enc []byte) (string, error) {
+	var buf bytes.Buffer
+	if err := writeString(&buf, key); err != nil {
+		return content, err
+	}
+	buf.WriteString(": ")
+	buf.Write(enc)
+	member := buf.String()
+	if len(obj.members) == 0 {
+		return content[:obj.open+1] + member + content[obj.open+1:], nil
+	}
+	first := obj.members[0]
+	last := obj.members[len(obj.members)-1]
+	prevNL := strings.LastIndexByte(content[:first.keyStart], '\n')
+	if prevNL < obj.open {
+		// The object sits on one line, so a member added on a line of its own would be the only break in it.
+		at, sep := last.end, ", "
+		if last.comma >= 0 {
+			at, sep = last.comma+1, " "
+		}
+		return content[:at] + sep + member + content[at:], nil
+	}
+	eol, indent := "\n", content[prevNL+1:first.keyStart]
+	if prevNL > 0 && content[prevNL-1] == '\r' {
+		eol = "\r\n"
+	}
+	if strings.Trim(indent, " \t") != "" {
+		indent = "  "
+	}
+	at, sep := last.end, ","+eol+indent
+	if last.comma >= 0 {
+		at, sep = last.comma+1, eol+indent
+	}
+	return content[:at] + sep + member + content[at:], nil
+}
+
+// encodeInline writes n on one line, the form Set splices where the file's own value stood: a value split over lines
+// would move bytes the edit is meant to leave alone.
+func encodeInline(n Node) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := writeInline(&buf, n); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func writeInline(buf *bytes.Buffer, n Node) error {
+	switch n.Kind {
+	case Null:
+		buf.WriteString("null")
+	case Bool:
+		buf.WriteString(strconv.FormatBool(n.Bool))
+	case Number:
+		buf.WriteString(n.Num.String())
+	case String:
+		return writeString(buf, n.Str)
+	case Array:
+		buf.WriteByte('[')
+		for i, item := range n.Arr {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			if err := writeInline(buf, item); err != nil {
+				return err
+			}
+		}
+		buf.WriteByte(']')
+	case Object:
+		buf.WriteByte('{')
+		for i, p := range n.Obj {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			if err := writeString(buf, p.Key); err != nil {
+				return err
+			}
+			buf.WriteString(": ")
+			if err := writeInline(buf, p.Value); err != nil {
+				return err
+			}
+		}
+		buf.WriteByte('}')
+	}
+	return nil
+}
+
+// scanner finds where the values of the file's text sit, so an edit can splice one without rewriting the rest. It
+// only ever runs on text Parse has accepted, so it needs no error of its own for bad syntax.
+type scanner struct {
+	text string
+	at   int
+}
+
+// objectAt is where an object's opening brace and its members sit in the text.
+type objectAt struct {
+	open    int
+	members []memberAt
+}
+
+// memberAt is one member's key and value offsets; comma is the offset of the comma after the value, or -1.
+type memberAt struct {
+	keyStart int
+	start    int
+	end      int
+	comma    int
+}
+
+// object reads the object whose "{" is next and returns where its parts sit.
+func (p *scanner) object() (objectAt, error) {
+	p.skip()
+	var obj objectAt
+	if p.at >= len(p.text) || p.text[p.at] != '{' {
+		return obj, errors.New("jsonfile: expected an object")
+	}
+	obj.open = p.at
+	p.at++
+	for {
+		p.skip()
+		if p.at >= len(p.text) {
+			return obj, errors.New("jsonfile: unexpected end of the value")
+		}
+		if p.text[p.at] == '}' {
+			p.at++
+			return obj, nil
+		}
+		m := memberAt{keyStart: p.at, comma: -1}
+		if err := p.key(); err != nil {
+			return obj, err
+		}
+		p.skip()
+		if p.at >= len(p.text) || p.text[p.at] != ':' {
+			return obj, errors.New("jsonfile: expected a colon")
+		}
+		p.at++
+		p.skip()
+		m.start = p.at
+		if err := p.value(); err != nil {
+			return obj, err
+		}
+		m.end = p.at
+		p.skip()
+		if p.at < len(p.text) && p.text[p.at] == ',' {
+			m.comma = p.at
+			p.at++
+		}
+		obj.members = append(obj.members, m)
+	}
+}
+
+// value reads one value and leaves p.at just after it.
+func (p *scanner) value() error {
+	switch p.text[p.at] {
+	case '{':
+		_, err := p.object()
+		return err
+	case '[':
+		p.at++
+		for {
+			p.skip()
+			if p.at >= len(p.text) {
+				return errors.New("jsonfile: unexpected end of the value")
+			}
+			if p.text[p.at] == ']' {
+				p.at++
+				return nil
+			}
+			if err := p.value(); err != nil {
+				return err
+			}
+			p.skip()
+			if p.at < len(p.text) && p.text[p.at] == ',' {
+				p.at++
+			}
+		}
+	case '"', '\'':
+		return p.quoted()
+	}
+	for p.at < len(p.text) && !bareEnd(p.text[p.at]) {
+		p.at++
+	}
+	return nil
+}
+
+// quoted skips a single- or double-quoted string.
+func (p *scanner) quoted() error {
+	quote := p.text[p.at]
+	if quote != '"' && quote != '\'' {
+		return errors.New("jsonfile: expected a string")
+	}
+	for p.at++; p.at < len(p.text); {
+		switch p.text[p.at] {
+		case '\\':
+			p.at += 2
+		case quote:
+			p.at++
+			return nil
+		default:
+			p.at++
+		}
+	}
+	return errors.New("jsonfile: unterminated string")
+}
+
+// key skips an object key, which a lenient file may leave unquoted.
+func (p *scanner) key() error {
+	if c := p.text[p.at]; c == '"' || c == '\'' {
+		return p.quoted()
+	}
+	for p.at < len(p.text) && p.text[p.at] != ':' && !bareEnd(p.text[p.at]) {
+		p.at++
+	}
+	return nil
+}
+
+// skip passes whitespace and the comments a lenient reader accepts.
+func (p *scanner) skip() {
+	for p.at < len(p.text) {
+		switch c := p.text[p.at]; {
+		case c == ' ' || c == '\t' || c == '\r' || c == '\n':
+			p.at++
+		case c == '/' && p.at+1 < len(p.text) && p.text[p.at+1] == '/':
+			for p.at < len(p.text) && p.text[p.at] != '\n' {
+				p.at++
+			}
+		case c == '/' && p.at+1 < len(p.text) && p.text[p.at+1] == '*':
+			block := strings.Index(p.text[p.at+2:], "*/")
+			if block < 0 {
+				p.at = len(p.text)
+				return
+			}
+			p.at += block + 4
+		default:
+			return
+		}
+	}
+}
+
+// bareEnd reports the bytes that end a number, true, false or null.
+func bareEnd(c byte) bool {
+	switch c {
+	case ' ', '\t', '\r', '\n', ',', '}', ']', '/':
+		return true
+	}
+	return false
 }
 
 // Coerce types raw text as kind: Bool parses it with strconv.ParseBool, Number must be a finite JSON number and keeps
