@@ -257,6 +257,19 @@ func TestRemoveNestedMatchesDropOuterOnly(t *testing.T) {
 	}
 }
 
+func TestSetItemWithoutAfterAppendsANewGroup(t *testing.T) {
+	in := "<Project>\n  <ItemGroup>\n    <Reference Include=\"A\" />\n  </ItemGroup>\n</Project>\n"
+	got, err := SetItem(in, Item{Type: "Reference", Include: "B"}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<Project>\n  <ItemGroup>\n    <Reference Include=\"A\" />\n  </ItemGroup>\n" +
+		"  <ItemGroup>\n    <Reference Include=\"B\" />\n  </ItemGroup>\n</Project>\n"
+	if got != want {
+		t.Fatalf("SetItem = %q, want %q", got, want)
+	}
+}
+
 func TestPropertyUsesTheLastUnconditionalDefinition(t *testing.T) {
 	project := `<Project>
 <PropertyGroup><V>1</V></PropertyGroup>

@@ -232,7 +232,7 @@ func SetItem(text string, item Item, same []string, after func(Item) bool) (stri
 		if hasType(same, e.Name) && strings.EqualFold(attrValue(e.Attrs, "Include"), item.Include) {
 			return text[:e.Start] + xmlText + text[e.End:], nil
 		}
-		if after(Item{Type: e.Name, Include: attrValue(e.Attrs, "Include"), Attrs: e.Attrs}) {
+		if after != nil && after(Item{Type: e.Name, Include: attrValue(e.Attrs, "Include"), Attrs: e.Attrs}) {
 			last = &elems[i]
 		}
 	}
