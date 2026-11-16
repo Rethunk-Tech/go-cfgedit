@@ -86,3 +86,12 @@ func TestSetRefusesANameThatMakesTheFileLookLikeUTF16(t *testing.T) {
 		t.Fatalf("got %q, %v", got, err)
 	}
 }
+
+// A lone CR is a line ending; splitting only on LF glues the next key into the value and Set drops it.
+func TestSetLoneCRIsALineEnding(t *testing.T) {
+	in := "[S]\na = 1\rb = 2\n"
+	got, err := Set(in, "S", "a", "9")
+	if err != nil || got != "[S]\na = 9\rb = 2\n" {
+		t.Fatalf("got %q (%v)", got, err)
+	}
+}

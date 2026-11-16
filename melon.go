@@ -42,7 +42,7 @@ type melonEntry struct {
 
 // ParseMelon reads a MelonPreferences.cfg. It never fails: a line it does not understand is skipped.
 func ParseMelon(text string) *Melon {
-	d := &Melon{doc: textdoc.Split(text)}
+	d := &Melon{doc: textdoc.SplitCR(text)}
 	lines := d.doc.Lines
 	var section string
 	var desc []string

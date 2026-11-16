@@ -46,7 +46,7 @@ func Set(content, section, key, value string) (string, error) {
 	if badKey(key) {
 		return content, ErrBadName
 	}
-	d := textdoc.Split(content)
+	d := textdoc.SplitCR(content)
 	// Text ending in a newline splits to a final empty line, which is not a line of the file.
 	if n := len(d.Lines); d.Lines[n-1] == "" {
 		d.Lines, d.EOLs = d.Lines[:n-1], d.EOLs[:n-1]

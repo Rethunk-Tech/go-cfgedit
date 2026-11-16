@@ -238,3 +238,17 @@ func TestMelonArrayEndCountsEscapedBackslashes(t *testing.T) {
 		t.Fatalf("Set = %q, %v", out, err)
 	}
 }
+
+// A lone CR is a line ending (.NET ReadLine); splitting only on LF glues the next key into the value and Set drops it.
+func TestParseMelonLoneCRIsALineEnding(t *testing.T) {
+	const text = "[S]\na = 1\rb = 2\n"
+	d := ParseMelon(text)
+	got := d.Entries()
+	if len(got) != 2 || got[0].Key != "a" || got[0].Value != "1" || got[1].Key != "b" || got[1].Value != "2" {
+		t.Fatalf("entries %+v", got)
+	}
+	out, err := d.Set("S", "a", "9")
+	if err != nil || out != "[S]\na = 9\rb = 2\n" {
+		t.Fatalf("%q %v", out, err)
+	}
+}
