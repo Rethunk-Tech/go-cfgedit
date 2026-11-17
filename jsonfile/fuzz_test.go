@@ -115,7 +115,7 @@ func FuzzCoerce(f *testing.F) {
 			if n.Kind != Number || n.Num.String() != strings.TrimSpace(raw) {
 				t.Fatalf("got %+v, want trimmed %q", n, raw)
 			}
-		default:
+		case Null, String, Array, Object:
 			if err != nil {
 				t.Fatalf("String refused: %v", err)
 			}
