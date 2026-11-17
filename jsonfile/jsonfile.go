@@ -46,10 +46,11 @@ type Node struct {
 	Obj  []Pair      // Object
 }
 
-// MaxDepth is the deepest nesting of arrays and objects Parse accepts and Marshal and Text write. Indentation puts a
-// level's ancestors on its own line, so a value d deep writes about 2*d*d bytes: 10,000 nested arrays in a 20 KB file
-// would write 200 MB. A config that nests past this is not one a person reads.
-const MaxDepth = 1000
+// MaxDepth is the deepest nesting of arrays and objects Parse accepts and Marshal and Text write. Each indented line
+// carries its ancestors' indentation, so a document d deep writes about 2*d bytes per element line and grows d times
+// over: 1000 nested arrays turn 20 KB of brackets into 20 MB, where 64 keeps the output near the input. A config file
+// a game or plugin ships nests a handful of levels.
+const MaxDepth = 64
 
 var (
 	// ErrTooDeep refuses a value that nests arrays or objects past MaxDepth.

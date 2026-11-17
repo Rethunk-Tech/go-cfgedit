@@ -2,12 +2,13 @@ package jsonfile
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-// TestRefusesNestingPastMaxDepth holds that a small file cannot amplify into a huge output: each indented level writes
-// its ancestors' indentation on its own line, so 10,000 nested arrays in a 20 KB file wrote 200 MB.
+// TestRefusesNestingPastMaxDepth holds that a small file cannot amplify into a huge output: each indented line carries
+// its ancestors' indentation, so output grows with the square of the nesting.
 func TestRefusesNestingPastMaxDepth(t *testing.T) {
 	t.Parallel()
 	arrays := func(depth int) []byte {
@@ -50,6 +51,37 @@ func TestRefusesNestingPastMaxDepth(t *testing.T) {
 		if text := n.Text(); len(text) > tc.max {
 			t.Errorf("%s at depth %d: Text wrote %d bytes, more than %d", tc.name, MaxDepth, len(text), tc.max)
 		}
+	}
+}
+
+// TestRefusesIndentAmplification holds that the 1000-deep document whose every element line carries 2000 bytes of
+// indentation is refused rather than written out as megabytes.
+func TestRefusesIndentAmplification(t *testing.T) {
+	t.Parallel()
+	in := []byte(strings.Repeat("[", 1000) + "1," + strings.Repeat("1,", 3000) + "1" + strings.Repeat("]", 1000))
+	if _, err := Parse(in); !errors.Is(err, ErrTooDeep) {
+		t.Errorf("Parse of %d bytes: %v, want ErrTooDeep", len(in), err)
+	}
+}
+
+// TestMaxDepthRoundTrip holds that a document nesting exactly MaxDepth levels is still read and written unchanged.
+func TestMaxDepthRoundTrip(t *testing.T) {
+	t.Parallel()
+	in := []byte(strings.Repeat(`{"a":`, MaxDepth) + "1" + strings.Repeat("}", MaxDepth))
+	n, err := Parse(in)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	out, err := n.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	again, err := Parse(out)
+	if err != nil {
+		t.Fatalf("Parse of Marshal output: %v", err)
+	}
+	if !reflect.DeepEqual(again, n) {
+		t.Error("Marshal then Parse changed the document")
 	}
 }
 
