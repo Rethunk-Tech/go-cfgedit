@@ -46,6 +46,7 @@ func ParseMelon(text string) *Melon {
 	lines := d.doc.Lines
 	var section string
 	var desc []string
+	var depths *bracketIndex
 	for i := 0; i < len(lines); i++ {
 		raw := lines[i]
 		line := strings.TrimSpace(raw)
@@ -63,7 +64,7 @@ func ParseMelon(text string) *Melon {
 				continue
 			}
 			value, suffix := splitInline(strings.TrimSpace(raw[eq+1:]))
-			end := valueEnd(lines, i, value)
+			end := valueEnd(lines, i, value, &depths)
 			if end > i {
 				value, suffix = strings.Join(append([]string{value}, lines[i+1:end+1]...), "\n"), ""
 			}
@@ -146,11 +147,48 @@ func escaped(v string, i int) bool {
 
 // valueEnd is the line a value opening on line i ends on: a multi-line string runs to its closing quotes, an array
 // until its brackets close.
-func valueEnd(lines []string, i int, value string) int {
+func valueEnd(lines []string, i int, value string, depths **bracketIndex) int {
 	if end, ok := multiLineStringEnd(lines, i, value); ok {
 		return end
 	}
+	if !strings.HasPrefix(value, "[") {
+		return i
+	}
+	if *depths == nil {
+		*depths = newBracketIndex(lines)
+	}
+	if !(*depths).canClose(i, bracketDepth(value)) {
+		return i
+	}
 	return arrayEnd(lines, i, value)
+}
+
+// bracketIndex tells whether an array opened on a line can ever close, so a file of unclosed "[" lines is not
+// rescanned to its end from every one of them.
+type bracketIndex struct {
+	sum []int // sum[j] is the bracket depth change of lines[0..j]
+	min []int // min[j] is the least of sum[j:]
+}
+
+func newBracketIndex(lines []string) *bracketIndex {
+	b := &bracketIndex{sum: make([]int, len(lines)), min: make([]int, len(lines))}
+	total := 0
+	for j, l := range lines {
+		total += bracketDepth(l)
+		b.sum[j] = total
+	}
+	for j := len(lines) - 1; j >= 0; j-- {
+		b.min[j] = b.sum[j]
+		if j+1 < len(lines) {
+			b.min[j] = min(b.min[j], b.min[j+1])
+		}
+	}
+	return b
+}
+
+// canClose reports whether an array that line i leaves open at depth closes on some later line.
+func (b *bracketIndex) canClose(i, depth int) bool {
+	return depth <= 0 || i+1 < len(b.sum) && b.min[i+1] <= b.sum[i]-depth
 }
 
 func multiLineStringEnd(lines []string, i int, value string) (int, bool) {
