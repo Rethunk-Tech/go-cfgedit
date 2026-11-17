@@ -46,7 +46,14 @@ type Node struct {
 	Obj  []Pair      // Object
 }
 
+// MaxDepth is the deepest nesting of arrays and objects Parse accepts and Marshal and Text write. Indentation puts a
+// level's ancestors on its own line, so a value d deep writes about 2*d*d bytes: 10,000 nested arrays in a 20 KB file
+// would write 200 MB. A config that nests past this is not one a person reads.
+const MaxDepth = 1000
+
 var (
+	// ErrTooDeep refuses a value that nests arrays or objects past MaxDepth.
+	ErrTooDeep = errors.New("jsonfile: nested deeper than MaxDepth")
 	// ErrBadPath refuses a path with an empty part, so a stray "." cannot edit an unnamed key.
 	ErrBadPath = errors.New("jsonfile: a path part is empty")
 	// ErrUnknownKey refuses a path whose intermediate key the object does not hold.
@@ -67,7 +74,7 @@ var jsonNumber = regexp.MustCompile(`^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$`)
 func Parse(data []byte) (Node, error) {
 	dec := json.NewDecoder(bytes.NewReader(lenientjson.Clean(data)))
 	dec.UseNumber()
-	n, err := decode(dec)
+	n, err := decode(dec, 0)
 	if err != nil {
 		return Node{}, err
 	}
@@ -77,7 +84,8 @@ func Parse(data []byte) (Node, error) {
 	return n, nil
 }
 
-func decode(dec *json.Decoder) (Node, error) {
+// decode reads one value; depth is the number of arrays and objects around it.
+func decode(dec *json.Decoder, depth int) (Node, error) {
 	tok, err := dec.Token()
 	if err != nil {
 		return Node{}, err
@@ -94,9 +102,9 @@ func decode(dec *json.Decoder) (Node, error) {
 	case json.Delim:
 		switch v {
 		case '[':
-			return decodeArray(dec)
+			return decodeArray(dec, depth+1)
 		case '{':
-			return decodeObject(dec)
+			return decodeObject(dec, depth+1)
 		case ']', '}':
 			return Node{}, fmt.Errorf("unexpected %c", v)
 		}
@@ -104,10 +112,13 @@ func decode(dec *json.Decoder) (Node, error) {
 	return Node{}, errors.New("unexpected JSON token")
 }
 
-func decodeArray(dec *json.Decoder) (Node, error) {
+func decodeArray(dec *json.Decoder, depth int) (Node, error) {
+	if depth > MaxDepth {
+		return Node{}, ErrTooDeep
+	}
 	var arr []Node
 	for dec.More() {
-		n, err := decode(dec)
+		n, err := decode(dec, depth)
 		if err != nil {
 			return Node{}, err
 		}
@@ -119,7 +130,10 @@ func decodeArray(dec *json.Decoder) (Node, error) {
 	return Node{Kind: Array, Arr: arr}, nil
 }
 
-func decodeObject(dec *json.Decoder) (Node, error) {
+func decodeObject(dec *json.Decoder, depth int) (Node, error) {
+	if depth > MaxDepth {
+		return Node{}, ErrTooDeep
+	}
 	var obj []Pair
 	for dec.More() {
 		keyTok, err := dec.Token()
@@ -130,7 +144,7 @@ func decodeObject(dec *json.Decoder) (Node, error) {
 		if !ok {
 			return Node{}, errors.New("expected an object key")
 		}
-		val, err := decode(dec)
+		val, err := decode(dec, depth)
 		if err != nil {
 			return Node{}, err
 		}
@@ -175,6 +189,9 @@ func encode(buf *bytes.Buffer, n Node, depth int) error {
 	case String:
 		return writeString(buf, n.Str)
 	case Array:
+		if depth >= MaxDepth {
+			return ErrTooDeep
+		}
 		if len(n.Arr) == 0 {
 			buf.WriteString("[]")
 			return nil
@@ -194,6 +211,9 @@ func encode(buf *bytes.Buffer, n Node, depth int) error {
 		buf.WriteString(strings.Repeat("  ", depth))
 		buf.WriteByte(']')
 	case Object:
+		if depth >= MaxDepth {
+			return ErrTooDeep
+		}
 		if len(n.Obj) == 0 {
 			buf.WriteString("{}")
 			return nil
@@ -248,8 +268,10 @@ func (n Node) Text() string {
 		return n.Str
 	case Array, Object:
 		var buf bytes.Buffer
-		// No error is possible: encode only reports a kind it does not know, and both are known here.
-		_ = encode(&buf, n, 0)
+		// A value nested past MaxDepth would write about 2*d*d bytes of indentation, so it has no text.
+		if err := encode(&buf, n, 0); err != nil {
+			return ""
+		}
 		return buf.String()
 	}
 	return ""
