@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Rethunk-Tech/go-lenientjson"
 )
@@ -221,6 +222,10 @@ func encode(buf *bytes.Buffer, n Node, depth int) error {
 
 // writeString writes s as a JSON string without the HTML escaping json.Marshal adds, so "&" and "<" stay as written.
 func writeString(buf *bytes.Buffer, s string) error {
+	// encoding/json replaces invalid UTF-8 with U+FFFD; a config edit must not silently change the value.
+	if !utf8.ValidString(s) {
+		return errors.New("jsonfile: invalid UTF-8")
+	}
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(s); err != nil {
