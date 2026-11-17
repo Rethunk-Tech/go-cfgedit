@@ -31,7 +31,7 @@ func TestSet(t *testing.T) {
 }
 
 func TestSetRefusesNonTextUntouched(t *testing.T) {
-	for _, in := range []string{"\xff\xfem\x00o\x00", "\xfe\xff\x00m\x00o", "a\x00b\x00"} {
+	for _, in := range []string{"\xff\xfe", "\xfe\xff", "\xff\xfem\x00o\x00", "\xfe\xff\x00m\x00o", "a\x00b\x00"} {
 		got, err := Set(in, "", "k", "v")
 		if !errors.Is(err, ErrNotText) || got != in {
 			t.Errorf("%q: got %q, %v", in, got, err)

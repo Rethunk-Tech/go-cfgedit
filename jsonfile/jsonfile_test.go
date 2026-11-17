@@ -93,6 +93,25 @@ func TestSplitPathKeepsADottedKeyWhole(t *testing.T) {
 	}
 }
 
+func TestSetSplicesInlineArraysQuotedKeysAndComments(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		in, key, want string
+		v             Node
+	}{
+		{`{"a":[1,2]}`, "a", `{"a":[3, 4]}`, Node{Kind: Array, Arr: []Node{{Kind: Number, Num: "3"}, {Kind: Number, Num: "4"}}}},
+		{`{"a:b":1}`, "a:b", `{"a:b":2}`, Node{Kind: Number, Num: "2"}},
+		{`{'a:b':1}`, "a:b", `{'a:b':2}`, Node{Kind: Number, Num: "2"}},
+		{`{"a":1, /*c*/ "b":2}`, "b", `{"a":1, /*c*/ "b":3}`, Node{Kind: Number, Num: "3"}},
+		{`{"a":1, /**/ "b":2}`, "b", `{"a":1, /**/ "b":3}`, Node{Kind: Number, Num: "3"}},
+	} {
+		out, err := Set(tc.in, []string{tc.key}, tc.v)
+		if err != nil || out != tc.want {
+			t.Errorf("%q: got %q (%v) want %q", tc.in, out, err, tc.want)
+		}
+	}
+}
+
 func TestSetKeepsTheFilesKeySpelling(t *testing.T) {
 	t.Parallel()
 	in := `{"other":42, "ENABLED":false}`
@@ -239,6 +258,7 @@ func TestNodeText(t *testing.T) {
 		{Node{Kind: Number, Num: "1.50"}, "1.50"},
 		{Node{Kind: String, Str: "x"}, "x"},
 		{Node{Kind: Array, Arr: []Node{{Kind: Number, Num: "1"}}}, "[\n  1\n]"},
+		{Node{Kind: Array, Arr: []Node{{Kind: Array, Arr: []Node{{Kind: Number, Num: "1"}}}}}, "[\n  [\n    1\n  ]\n]"},
 		{Node{Kind: Object, Obj: []Pair{{Key: "a", Value: Node{Kind: Null}}}}, "{\n  \"a\": null\n}"},
 	} {
 		if got := tc.node.Text(); got != tc.want {
