@@ -372,3 +372,106 @@ func TestMarshalKeepsHTMLCharactersUnescaped(t *testing.T) {
 		t.Errorf("got %q, want %q", out, want)
 	}
 }
+
+func TestSetSplicesAnObjectValueAndAMemberAfterATrailingComma(t *testing.T) {
+	t.Parallel()
+	obj := Node{Kind: Object, Obj: []Pair{
+		{Key: "k", Value: Node{Kind: Number, Num: "2"}},
+		{Key: "s", Value: Node{Kind: String, Str: "x"}},
+	}}
+	for _, tc := range []struct {
+		in, want string
+		path     []string
+		v        Node
+	}{
+		{`{"a":1}`, `{"a":{"k": 2, "s": "x"}}`, []string{"a"}, obj},
+		{`{"a":1,}`, `{"a":1, "b": {"k": 2, "s": "x"}}`, []string{"b"}, obj},
+		{"{\n  \"a\": 1,\n}\n", "{\n  \"a\": 1,\n  \"b\": {\"k\": 2, \"s\": \"x\"}\n}\n", []string{"b"}, obj},
+		{`{"a\"b":{"c":1}}`, `{"a\"b":{"c":2}}`, []string{`a"b`, "c"}, Node{Kind: Number, Num: "2"}},
+		{"{\n  /* keep */ \"a\": 1\n}\n", "{\n  /* keep */ \"a\": 1,\n  \"b\": true\n}\n", []string{"b"}, Node{Kind: Bool, Bool: true}},
+	} {
+		out, err := Set(tc.in, tc.path, tc.v)
+		if err != nil || out != tc.want {
+			t.Errorf("%q: got %q (%v) want %q", tc.in, out, err, tc.want)
+		}
+	}
+	in := `{"x":{"a":1}}`
+	out, err := Set(in, []string{"x"}, Node{Kind: Object, Obj: []Pair{{Key: "b", Value: Node{Kind: Number, Num: "1"}}}})
+	if err != nil || out == in {
+		t.Fatalf("same-shaped object with different keys: %q %v", out, err)
+	}
+	parsed, err := Parse([]byte(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err = Set(in, nil, parsed)
+	if err != nil || out != in {
+		t.Fatalf("empty path same value: %q %v", out, err)
+	}
+	out, err = Set(in, nil, Node{Kind: Object})
+	if err != nil || out != "{}\n" {
+		t.Fatalf("empty path empty object: %q %v", out, err)
+	}
+}
+
+func TestSetLeavesUnparseableAndInvalidUTF8FilesUntouched(t *testing.T) {
+	t.Parallel()
+	in := `{"a":1}`
+	if out, err := Set(`[`, []string{"a"}, Node{Kind: Null}); err == nil || out != `[` {
+		t.Errorf("unparseable: %q %v", out, err)
+	}
+	if out, err := Set(in, []string{"a"}, Node{Kind: String, Str: "\xff"}); err == nil || out != in {
+		t.Errorf("invalid UTF-8 value: %q %v", out, err)
+	}
+	if out, err := Set(in, []string{"\xff"}, Node{Kind: Number, Num: "1"}); err == nil || out != in {
+		t.Errorf("invalid UTF-8 key: %q %v", out, err)
+	}
+	if out, err := Set(in, []string{"a"}, Node{Kind: Array, Arr: []Node{{Kind: String, Str: "\xff"}}}); err == nil || out != in {
+		t.Errorf("invalid UTF-8 array item: %q %v", out, err)
+	}
+	if out, err := Set(in, []string{"a"}, Node{Kind: Object, Obj: []Pair{{Key: "\xff", Value: Node{Kind: Null}}}}); err == nil || out != in {
+		t.Errorf("invalid UTF-8 object key: %q %v", out, err)
+	}
+	if out, err := Set(in, []string{"a"}, Node{Kind: Object, Obj: []Pair{{Key: "k", Value: Node{Kind: String, Str: "\xff"}}}}); err == nil || out != in {
+		t.Errorf("invalid UTF-8 object value: %q %v", out, err)
+	}
+	deep := Node{Kind: Number, Num: "1"}
+	for range MaxDepth + 1 {
+		deep = Node{Kind: Array, Arr: []Node{deep}}
+	}
+	if out, err := Set(`1`, nil, deep); !errors.Is(err, ErrTooDeep) || out != `1` {
+		t.Errorf("too-deep empty path: %q %v", out, err)
+	}
+	for _, raw := range []string{`{]`, `[}`, `[,]}`} {
+		if _, err := Parse([]byte(raw)); err == nil {
+			t.Errorf("%q parsed", raw)
+		}
+	}
+}
+
+func TestEmptyObjectMarshalsToBracesAndUnknownKindHasNoText(t *testing.T) {
+	t.Parallel()
+	got, err := (Node{Kind: Object}).Marshal()
+	if err != nil || string(got) != "{}\n" {
+		t.Fatalf("empty object Marshal: %q %v", got, err)
+	}
+	if text := (Node{Kind: Object}).Text(); text != "{}" {
+		t.Fatalf("empty object Text: %q", text)
+	}
+	if _, err := (Node{Kind: Object, Obj: []Pair{{Key: "\xff", Value: Node{Kind: Null}}}}).Marshal(); err == nil {
+		t.Fatal("invalid UTF-8 key marshaled")
+	}
+	if (Node{Kind: 99}).Text() != "" {
+		t.Fatal("unknown kind had text")
+	}
+	if _, err := (Node{Kind: Object, Obj: []Pair{{Key: "k", Value: Node{Kind: String, Str: "\xff"}}}}).Marshal(); err == nil {
+		t.Fatal("invalid UTF-8 value marshaled")
+	}
+	deep := Node{Kind: Number, Num: "1"}
+	for range MaxDepth + 1 {
+		deep = Node{Kind: Object, Obj: []Pair{{Key: "a", Value: deep}}}
+	}
+	if _, err := deep.Marshal(); !errors.Is(err, ErrTooDeep) {
+		t.Fatalf("too-deep object Marshal: %v", err)
+	}
+}

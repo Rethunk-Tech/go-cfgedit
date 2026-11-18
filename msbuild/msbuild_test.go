@@ -333,3 +333,78 @@ func TestPropertyUsesTheLastUnconditionalDefinition(t *testing.T) {
 		t.Fatalf("edit changed the wrong element:\n%s", got)
 	}
 }
+
+func TestBrokenXMLIsUnreadableAndUnwritable(t *testing.T) {
+	item := Item{Type: "Ref", Include: "A"}
+	all := func(Elem, string) bool { return true }
+	for _, in := range []string{"<Project>", "</Project>", "<"} {
+		if Property(in, "X") != "" {
+			t.Errorf("Property(%q) was not empty", in)
+		}
+		if items, err := Items(in, "Ref"); err == nil {
+			t.Errorf("Items(%q): %+v", in, items)
+		}
+		if out, err := SetRawProperty(in, "X", "1"); out != in || err == nil {
+			t.Errorf("SetRawProperty(%q): %q %v", in, out, err)
+		}
+		if out, err := SetItem(in, item, []string{"Ref"}, nil); out != in || err == nil {
+			t.Errorf("SetItem(%q): %q %v", in, out, err)
+		}
+		if out, err := Remove(in, all); out != in || err == nil {
+			t.Errorf("Remove(%q): %q %v", in, out, err)
+		}
+		if out, err := SetAttr(in, all, "A", "1"); out != in || err == nil {
+			t.Errorf("SetAttr(%q): %q %v", in, out, err)
+		}
+	}
+	if out, err := SetProperty("", "X", "1"); out != "" || err == nil {
+		t.Errorf("empty file: %q %v", out, err)
+	}
+	if v := Property(project, "NoSuch"); v != "" {
+		t.Errorf("missing property = %q", v)
+	}
+	if _, err := SetAttr(project, all, `A"`, "1"); !errors.Is(err, ErrBadName) {
+		t.Errorf("bad attribute name: %v", err)
+	}
+}
+
+func TestEscapeXMLLeavesCharactersMSBuildReadsSpecially(t *testing.T) {
+	if got := EscapeXML("a$;@%*'?b"); got != "a$;@%*'?b" {
+		t.Errorf("metacharacters: %q", got)
+	}
+	if got := EscapeXML("a<b>&c"); got != "a&lt;b&gt;&amp;c" {
+		t.Errorf("markup: %q", got)
+	}
+}
+
+func TestEditsHonorCompactTagsAttributeSpacingAndAFinalLineWithoutNewline(t *testing.T) {
+	got, err := SetProperty("<Project><PropertyGroup><X>1</X></PropertyGroup></Project>", "Y", "2")
+	if err != nil || got != "<Project><PropertyGroup><X>1</X>\n<Y>2</Y>\n</PropertyGroup></Project>" {
+		t.Fatalf("compact group: %q %v", got, err)
+	}
+	elems, err := Parse(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := elems[0].Text(); text != "" {
+		t.Fatalf("root Text = %q, want empty because it holds children", text)
+	}
+	spaced := `<P><Ref Include = "A" /></P>`
+	got, err = SetAttr(spaced, func(e Elem, _ string) bool { return e.Name == "Ref" }, "Include", "B")
+	if err != nil || got != `<P><Ref Include="B" /></P>` {
+		t.Fatalf("spaces around equals: %q %v", got, err)
+	}
+	got, err = Remove("<Project>\n  <A Include=\"x\" /></Project>", func(e Elem, _ string) bool { return e.Name == "A" })
+	if err != nil || strings.Contains(got, "A Include") {
+		t.Fatalf("remove last line: %q %v", got, err)
+	}
+	got, err = SetItem("<Project>\n  <ItemGroup>\n  </ItemGroup>\n</Project>\n",
+		Item{Type: "Ref", Include: "P", Attrs: map[string]string{"HintPath": "h", "Private": "true", "Version": "1"}},
+		[]string{"Ref"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, `<Ref Include="P" Version="1" HintPath="h" Private="true" />`) {
+		t.Fatalf("attribute order: %q", got)
+	}
+}
