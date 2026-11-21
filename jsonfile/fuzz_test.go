@@ -43,7 +43,7 @@ func FuzzSet(f *testing.F) {
 		if err != nil {
 			t.Fatalf("Set wrote a file that does not parse: %v\n%s", err, out)
 		}
-		if len(out) > len(content)+len(raw)*8+len(field)+4096 {
+		if len(out) > len(content)+(len(raw)+len(field))*8+4096 {
 			t.Fatalf("unbounded write: %d from %d", len(out), len(content))
 		}
 		got, ok := n.Lookup(path)

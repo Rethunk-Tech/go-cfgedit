@@ -6,6 +6,10 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The `jsonfile` fuzz test bounded a written key at one byte per input byte, but a control character escapes to six, so a long key of them failed the test. The bound now allows the escaping; `Set` itself was right.
+
 ## [0.5.0] - 2026-11-21
 
 ### Changed
