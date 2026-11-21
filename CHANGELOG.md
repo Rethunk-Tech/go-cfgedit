@@ -6,6 +6,12 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-21
+
+### Changed
+
+- Breaking: `jsonfile.Set` now has the signature `func(string, []string, Node) (string, error)` and returns an error. `jsonfile.MaxDepth` (64) and `jsonfile.ErrTooDeep` are new: nesting past 64 levels is refused.
+
 ### Added
 
 - `jsonfile` splices one value into the file's text, keeping every other byte.
@@ -69,7 +75,8 @@ Notable changes to `go-cfgedit`. The format follows
 - `ValueError`, `Problem` and `ErrNoSetting`: a refused value carries a stable problem code, the bound broken and the acceptable values; a missing setting is told apart with `errors.Is`.
 - `ini.Set` and `ini.Check`: set `key = value` in an INI section, adding the key or the section when missing, refusing UTF-16 or NUL content and names that would break the lines.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.3.0...v0.4.0
