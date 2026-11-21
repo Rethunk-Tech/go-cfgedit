@@ -6,6 +6,29 @@ Notable changes to `go-cfgedit`. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `jsonfile` splices one value into the file's text, keeping every other byte.
+
+### Fixed
+
+- `msbuild` reads and edits only the project's own properties, not a `Choose` or `Target` branch, and adds a missing property to an unconditional `PropertyGroup`.
+- `msbuild.SetItem` treats a nil `after` as matching no item.
+- Melon and INI split on a lone CR, so `Set` keeps the next key.
+- A Melon leading-zero integer is typed as raw, matching TOML.
+- `ParseMelon` runs in linear time on unclosed arrays.
+- `jsonfile` keeps a UTF-8 byte order mark, refuses invalid UTF-8 when encoding a string, and refuses nesting past 64 levels.
+- A duplicate key edits the last one.
+
+## [0.4.2] - 2026-11-12
+
+### Fixed
+
+- `msbuild` reads and edits the last unconditional property, as MSBuild evaluates it; compares parent names, `Include` and attributes without case; keeps attributes when filling a self-closing property; and `Remove` no longer panics when a match nests inside another.
+- Melon: strings close after an even backslash run, a key splits at the first `=` outside quotes, and a table header with an inline comment no longer hides its entries (a value comment keeps its spacing).
+- `jsonfile`: `Marshal` no longer escapes `&`, `<` and `>` in strings it was not asked to change, `Coerce` refuses Inf, NaN and non-JSON numbers, and `Set` and `Lookup` use the last case-insensitive key.
+- `bepinex.Set` edits the last duplicate key, matching BepInEx.
+
 ## [0.4.1] - 2026-11-12
 
 ### Fixed
@@ -46,7 +69,8 @@ Notable changes to `go-cfgedit`. The format follows
 - `ValueError`, `Problem` and `ErrNoSetting`: a refused value carries a stable problem code, the bound broken and the acceptable values; a missing setting is told apart with `errors.Is`.
 - `ini.Set` and `ini.Check`: set `key = value` in an INI section, adding the key or the section when missing, refusing UTF-16 or NUL content and names that would break the lines.
 
-[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Rethunk-Tech/go-cfgedit/compare/v0.2.0...v0.3.0
